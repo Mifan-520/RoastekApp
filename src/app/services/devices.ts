@@ -42,7 +42,7 @@ export async function claimDevice(input: { claimCode: string; name: string; addr
   return payload.device;
 }
 
-export async function updateDevice(deviceId: string, input: { name: string; type: string; location: string; address: string }) {
+export async function updateDevice(deviceId: string, input: { name: string; address: string }) {
   const response = await authRequest(`/devices/${deviceId}`, {
     method: "PATCH",
     body: JSON.stringify(input),

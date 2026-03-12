@@ -68,8 +68,6 @@ export function DeviceList() {
   const [isDeviceModalOpen, setIsDeviceModalOpen] = useState(false);
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
   const [devName, setDevName] = useState("");
-  const [devType, setDevType] = useState("");
-  const [devLocation, setDevLocation] = useState("");
   const [devAddress, setDevAddress] = useState("");
   const [devActivationCode, setDevActivationCode] = useState("");
   const [deleteConfirmDeviceId, setDeleteConfirmDeviceId] = useState<string | null>(null);
@@ -132,8 +130,6 @@ export function DeviceList() {
   const openAddDeviceModal = () => {
     setEditingDeviceId(null);
     setDevName("");
-    setDevType("");
-    setDevLocation("");
     setDevAddress("");
     setDevActivationCode("");
     setDeviceFormError("");
@@ -143,8 +139,6 @@ export function DeviceList() {
   const openEditDeviceModal = (device: DeviceRecord) => {
     setEditingDeviceId(device.id);
     setDevName(device.name);
-    setDevType(device.type);
-    setDevLocation(device.location);
     setDevAddress(device.address || "");
     setDevActivationCode("");
     setDeviceFormError("");
@@ -153,8 +147,6 @@ export function DeviceList() {
 
   const handleSaveDevice = async () => {
     const name = devName.trim();
-    const type = devType.trim();
-    const location = devLocation.trim();
     const address = devAddress.trim();
     const claimCode = devActivationCode.trim();
 
@@ -163,7 +155,7 @@ export function DeviceList() {
       return;
     }
 
-    if (editingDeviceId && (!type || !location || !address)) {
+    if (editingDeviceId && !address) {
       setDeviceFormError("编辑设备时请补全信息");
       return;
     }
@@ -178,7 +170,7 @@ export function DeviceList() {
 
     try {
       if (editingDeviceId) {
-        await updateDevice(editingDeviceId, { name, type, location, address });
+        await updateDevice(editingDeviceId, { name, address });
       } else {
         await claimDevice({ claimCode, name, address });
       }
@@ -641,32 +633,6 @@ export function DeviceList() {
                 />
               </div>
               
-              {editingDeviceId ? (
-                <>
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">设备类型</label>
-                    <input 
-                      type="text"
-                      value={devType}
-                      onChange={(e) => setDevType(e.target.value)}
-                      placeholder="例如：农业传感器"
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-medium placeholder:font-normal placeholder:text-slate-400"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1.5">安装位置</label>
-                    <input 
-                      type="text"
-                      value={devLocation}
-                      onChange={(e) => setDevLocation(e.target.value)}
-                      placeholder="例如：2号大棚"
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-medium placeholder:font-normal placeholder:text-slate-400"
-                    />
-                  </div>
-                </>
-              ) : null}
-
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1.5">设备地址</label>
                 <input 
@@ -706,11 +672,11 @@ export function DeviceList() {
               >
                 取消
               </button>
-              <button
-                onClick={handleSaveDevice}
-                disabled={Boolean(isDeviceSubmitting || !devName.trim() || !devAddress.trim() || (!editingDeviceId && !devActivationCode.trim()) || (editingDeviceId && (!devType.trim() || !devLocation.trim())))}
-                className="px-4 py-2 text-sm font-medium text-white bg-rose-600 rounded-xl shadow-sm hover:bg-rose-700 hover:shadow disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-              >
+                <button
+                  onClick={handleSaveDevice}
+                  disabled={Boolean(isDeviceSubmitting || !devName.trim() || !devAddress.trim() || (!editingDeviceId && !devActivationCode.trim()))}
+                  className="px-4 py-2 text-sm font-medium text-white bg-rose-600 rounded-xl shadow-sm hover:bg-rose-700 hover:shadow disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                >
                 {isDeviceSubmitting ? '处理中...' : editingDeviceId ? '保存信息' : '立即绑定'}
               </button>
             </div>
