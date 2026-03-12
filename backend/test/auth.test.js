@@ -104,7 +104,7 @@ test("prevents claiming an already bound device until it is deleted", async () =
   assert.equal(secondClaim.body.device.name, "管理员设备");
 });
 
-test("updates device fields and its single config name for the owner", async () => {
+test("updates only device name and address for the owner", async () => {
   const app = buildApp();
   const session = await loginAs(app, "admin", "admin");
 
@@ -118,10 +118,13 @@ test("updates device fields and its single config name for the owner", async () 
   const updateDevice = await request(app)
     .patch(`/api/devices/${deviceId}`)
     .set("Authorization", `Bearer ${session.token}`)
-    .send({ name: "已改名设备", type: "自定义类型", location: "测试位置" });
+    .send({ name: "已改名设备", address: "上海市闵行区 测试地址 88 号" });
 
   assert.equal(updateDevice.status, 200);
   assert.equal(updateDevice.body.device.name, "已改名设备");
+  assert.equal(updateDevice.body.device.address, "上海市闵行区 测试地址 88 号");
+  assert.equal(updateDevice.body.device.type, "农业传感器");
+  assert.equal(updateDevice.body.device.location, "1号大棚");
 
   const updateConfig = await request(app)
     .patch(`/api/devices/${deviceId}/config`)

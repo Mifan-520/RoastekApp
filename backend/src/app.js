@@ -210,19 +210,15 @@ export function createApp() {
     }
 
     const name = String(req.body?.name || "").trim();
-    const type = String(req.body?.type || "").trim();
-    const location = String(req.body?.location || "").trim();
     const address = String(req.body?.address || "").trim();
 
-    if (!name || !type || !location) {
-      res.status(400).json({ message: "设备信息不能为空" });
+    if (!name || !address) {
+      res.status(400).json({ message: "设备名称和地址不能为空" });
       return;
     }
 
     device.name = name;
-    device.type = type;
-    device.location = location;
-    device.address = address || device.address;
+    device.address = address;
     device.updatedAt = nowIso();
 
     res.json({ device: serializeDevice(device) });
