@@ -8,6 +8,7 @@ Minimal backend skeleton for local development and later Docker deployment.
 - `POST /api/auth/login`
 - `GET /api/auth/me`
 - `GET /api/devices`
+- `GET /api/devices/:id`
 - `POST /api/devices/claim`
 - `PATCH /api/devices/:id`
 - `DELETE /api/devices/:id`

@@ -20,6 +20,7 @@ function serializeDevice(device) {
     name: device.name,
     type: device.type,
     location: device.location,
+    address: device.address,
     status: device.status,
     lastActive: device.lastActive,
     lastSeenAt: device.lastSeenAt,
@@ -57,6 +58,7 @@ function resetDevice(device) {
   device.name = device.defaultName;
   device.type = device.defaultType;
   device.location = device.defaultLocation;
+  device.address = device.defaultAddress;
   device.config = buildDefaultConfig(device.defaultConfigName);
   device.updatedAt = timestamp;
   device.boundAt = null;
@@ -157,6 +159,7 @@ export function createApp() {
   app.post("/api/devices/claim", requireAuth, (req, res) => {
     const claimCode = normalizeClaimCode(req.body?.claimCode);
     const name = String(req.body?.name || "").trim();
+    const address = String(req.body?.address || "").trim();
 
     if (!/^[A-Z0-9]{8}$/.test(claimCode)) {
       res.status(400).json({ message: "设备码格式不正确" });
@@ -182,6 +185,7 @@ export function createApp() {
 
     device.ownerId = req.user.id;
     device.name = name;
+    device.address = address || device.defaultAddress;
     device.boundAt = nowIso();
     device.updatedAt = device.boundAt;
 
@@ -208,6 +212,7 @@ export function createApp() {
     const name = String(req.body?.name || "").trim();
     const type = String(req.body?.type || "").trim();
     const location = String(req.body?.location || "").trim();
+    const address = String(req.body?.address || "").trim();
 
     if (!name || !type || !location) {
       res.status(400).json({ message: "设备信息不能为空" });
@@ -217,6 +222,7 @@ export function createApp() {
     device.name = name;
     device.type = type;
     device.location = location;
+    device.address = address || device.address;
     device.updatedAt = nowIso();
 
     res.json({ device: serializeDevice(device) });
