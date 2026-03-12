@@ -1,0 +1,13 @@
+node_modules/
+backend/node_modules/
+dist/
+backend/dist/
+*.log
+vite-dev.log
+backend/backend-dev.log
+.env
+.env.local
+.env.production
+.env.*.local
+.DS_Store
+Thumbs.db
