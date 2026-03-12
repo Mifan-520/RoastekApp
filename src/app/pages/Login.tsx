@@ -1,21 +1,36 @@
 import { useNavigate } from "react-router";
 import { Lock, User, ChevronRight } from "lucide-react";
-import { useState } from "react";
-import logoImg from 'figma:asset/a0348e23b5c7ce322b5d3ab3599c79872579b09f.png';
+import { useEffect, useState } from "react";
+import logoImg from "../../assets/a0348e23b5c7ce322b5d3ab3599c79872579b09f.png";
+import { getSession, login as loginRequest, saveSession } from "../services/auth";
 
 export function Login() {
   const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
-  const handleLogin = (e: React.FormEvent) => {
+  useEffect(() => {
+    if (getSession()) {
+      navigate("/devices", { replace: true });
+    }
+  }, [navigate]);
+
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    // Simulate API delay
-    setTimeout(() => {
+    setErrorMessage("");
+
+    try {
+      const session = await loginRequest(username, password);
+      saveSession(session);
       navigate("/devices");
-    }, 1000);
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : "登录失败，请稍后重试");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -30,10 +45,10 @@ export function Login() {
         <div className="absolute inset-0 bg-gradient-to-b from-rose-950/60 to-white" />
       </div>
 
-      <div className="relative z-10 px-8 pt-20 pb-8 flex flex-col h-full">
+      <div className="relative z-10 px-8 pt-12 pb-8 flex flex-col h-full">
         {/* Logo and Welcome */}
-        <div className="mb-12">
-          <img src={logoImg} alt="ROASTEK Logo" className="h-10 object-contain mb-8" />
+        <div className="mb-10">
+          <img src={logoImg} alt="ROASTEK Logo" className="h-30 object-contain mb-8" />
           <h1 className="text-3xl font-bold text-gray-900 mb-2 tracking-tight">
             欢迎登录
           </h1>
@@ -67,6 +82,12 @@ export function Login() {
               />
             </div>
           </div>
+
+          {errorMessage ? (
+            <div className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 border border-red-100">
+              {errorMessage}
+            </div>
+          ) : null}
 
           <div className="flex items-center justify-between px-2">
             <label className="flex items-center space-x-2 text-sm text-gray-600">
