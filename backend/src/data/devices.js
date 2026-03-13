@@ -13,6 +13,12 @@ export const seedDevices = [
     createdAt: "2026-03-10T08:00:00+08:00",
     updatedAt: "2026-03-12T08:00:00+08:00",
     boundAt: "2026-03-10T08:30:00+08:00",
+    connectionHistory: [
+      { id: "ch-1", type: "online", time: "03-12 15:10", label: "设备上线" },
+      { id: "ch-2", type: "offline", time: "03-12 14:45", label: "连接断开" },
+      { id: "ch-3", type: "online", time: "03-12 09:30", label: "设备上线" }
+    ],
+    alarms: [],
     ownerId: "user-admin",
     name: "智能温室节点A1",
     type: "农业传感器",
@@ -21,6 +27,14 @@ export const seedDevices = [
     config: {
       id: "default",
       name: "温室主组态",
+      payload: {
+        chartData: [
+          { name: "动力系统", value: 45 },
+          { name: "温控系统", value: 30 },
+          { name: "照明及其他", value: 25 }
+        ],
+        switches: { s1: true, s2: false }
+      }
     },
   },
   {
@@ -37,6 +51,11 @@ export const seedDevices = [
     createdAt: "2026-03-10T09:00:00+08:00",
     updatedAt: "2026-03-12T07:50:00+08:00",
     boundAt: "2026-03-10T09:20:00+08:00",
+    connectionHistory: [
+      { id: "ch-4", type: "offline", time: "03-12 08:50", label: "连接断开" },
+      { id: "ch-5", type: "online", time: "03-12 08:00", label: "设备上线" }
+    ],
+    alarms: [],
     ownerId: "user-admin",
     name: "水泵控制终端",
     type: "控制终端",
@@ -58,6 +77,11 @@ export const seedDevices = [
     createdAt: "2026-03-11T08:00:00+08:00",
     updatedAt: "2026-03-12T07:59:00+08:00",
     boundAt: null,
+    connectionHistory: [
+      { id: "ch-6", type: "online", time: "03-12 15:10", label: "设备上线" },
+      { id: "ch-7", type: "offline", time: "03-12 13:40", label: "连接断开" }
+    ],
+    alarms: [],
     ownerId: null,
     name: "工厂能耗监测",
     type: "能耗网关",
@@ -66,6 +90,14 @@ export const seedDevices = [
     config: {
       id: "default",
       name: "能耗监测组态",
+      payload: {
+        chartData: [
+          { name: "动力系统", value: 40 },
+          { name: "温控系统", value: 35 },
+          { name: "照明及其他", value: 25 }
+        ],
+        switches: { s1: true, s2: true }
+      }
     },
   },
   {
@@ -82,6 +114,12 @@ export const seedDevices = [
     createdAt: "2026-03-11T09:00:00+08:00",
     updatedAt: "2026-03-12T07:30:00+08:00",
     boundAt: null,
+    connectionHistory: [
+      { id: "ch-8", type: "offline", time: "03-12 07:30", label: "连接断开" }
+    ],
+    alarms: [
+      { id: "alarm-1", message: "采集延迟偏高", time: "03-12 07:28" }
+    ],
     ownerId: null,
     name: "园区采集终端",
     type: "4G 采集终端",
@@ -90,6 +128,14 @@ export const seedDevices = [
     config: {
       id: "default",
       name: "园区采集组态",
+      payload: {
+        chartData: [
+          { name: "动力系统", value: 50 },
+          { name: "温控系统", value: 20 },
+          { name: "照明及其他", value: 30 }
+        ],
+        switches: { s1: false, s2: false }
+      }
     },
   },
   {
@@ -106,6 +152,8 @@ export const seedDevices = [
     createdAt: "2026-03-11T10:00:00+08:00",
     updatedAt: "2026-03-11T10:00:00+08:00",
     boundAt: null,
+    connectionHistory: [],
+    alarms: [],
     ownerId: null,
     name: "备用采集终端",
     type: "4G DTU",

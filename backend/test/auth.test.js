@@ -3,8 +3,20 @@ import assert from "node:assert/strict";
 import request from "supertest";
 import { createApp } from "../src/app.js";
 
-function buildApp() {
-  return createApp();
+async function buildApp() {
+  return createApp({
+    useInMemoryDb: true,
+    config: {
+      port: 3001,
+      nodeEnv: "test",
+      databaseUrl: "pg-mem",
+      frontendOrigins: ["http://127.0.0.1:4173"],
+      adminUsername: "admin",
+      adminPassword: "admin",
+      userUsername: "user",
+      userPassword: "user",
+    },
+  });
 }
 
 async function loginAs(app, username, password) {
@@ -17,7 +29,7 @@ async function loginAs(app, username, password) {
 }
 
 test("accepts admin login and returns admin role label", async () => {
-  const app = buildApp();
+  const app = await buildApp();
   const response = await request(app)
     .post("/api/auth/login")
     .send({ username: "admin", password: "admin" });
@@ -27,10 +39,47 @@ test("accepts admin login and returns admin role label", async () => {
   assert.equal(response.body.user.role, "admin");
   assert.equal(response.body.user.roleLabel, "管理员");
   assert.equal(typeof response.body.token, "string");
+  assert.notEqual(response.body.token, "token-admin");
+  assert.equal(response.body.token.length >= 24, true);
+});
+
+test("returns current user with issued token and rejects forged predictable token", async () => {
+  const app = await buildApp();
+  const session = await loginAs(app, "admin", "admin");
+
+  const meResponse = await request(app)
+    .get("/api/auth/me")
+    .set("Authorization", `Bearer ${session.token}`);
+
+  assert.equal(meResponse.status, 200);
+  assert.equal(meResponse.body.user.username, "admin");
+
+  const forgedResponse = await request(app)
+    .get("/api/auth/me")
+    .set("Authorization", "Bearer token-admin");
+
+  assert.equal(forgedResponse.status, 401);
+});
+
+test("invalidates token after logout", async () => {
+  const app = await buildApp();
+  const session = await loginAs(app, "admin", "admin");
+
+  const logoutResponse = await request(app)
+    .post("/api/auth/logout")
+    .set("Authorization", `Bearer ${session.token}`);
+
+  assert.equal(logoutResponse.status, 204);
+
+  const meResponse = await request(app)
+    .get("/api/auth/me")
+    .set("Authorization", `Bearer ${session.token}`);
+
+  assert.equal(meResponse.status, 401);
 });
 
 test("accepts user login and returns user role label", async () => {
-  const app = buildApp();
+  const app = await buildApp();
   const response = await request(app)
     .post("/api/auth/login")
     .send({ username: "user", password: "user" });
@@ -42,14 +91,14 @@ test("accepts user login and returns user role label", async () => {
 });
 
 test("rejects unauthenticated device list access", async () => {
-  const app = buildApp();
+  const app = await buildApp();
   const response = await request(app).get("/api/devices");
 
   assert.equal(response.status, 401);
 });
 
 test("claims an unbound device with a fixed code and custom name", async () => {
-  const app = buildApp();
+  const app = await buildApp();
   const session = await loginAs(app, "user", "user");
 
   const claimResponse = await request(app)
@@ -71,7 +120,7 @@ test("claims an unbound device with a fixed code and custom name", async () => {
 });
 
 test("prevents claiming an already bound device until it is deleted", async () => {
-  const app = buildApp();
+  const app = await buildApp();
   const userSession = await loginAs(app, "user", "user");
   const adminSession = await loginAs(app, "admin", "admin");
 
@@ -104,8 +153,28 @@ test("prevents claiming an already bound device until it is deleted", async () =
   assert.equal(secondClaim.body.device.name, "管理员设备");
 });
 
+test("allows only one successful claim in concurrent requests", async () => {
+  const app = await buildApp();
+  const adminSession = await loginAs(app, "admin", "admin");
+  const userSession = await loginAs(app, "user", "user");
+
+  const [first, second] = await Promise.all([
+    request(app)
+      .post("/api/devices/claim")
+      .set("Authorization", `Bearer ${adminSession.token}`)
+      .send({ claimCode: "Q4R8T2VW", name: "管理员并发设备" }),
+    request(app)
+      .post("/api/devices/claim")
+      .set("Authorization", `Bearer ${userSession.token}`)
+      .send({ claimCode: "Q4R8T2VW", name: "用户并发设备" }),
+  ]);
+
+  const statuses = [first.status, second.status].sort((a, b) => a - b);
+  assert.deepEqual(statuses, [201, 409]);
+});
+
 test("updates only device name and address for the owner", async () => {
-  const app = buildApp();
+  const app = await buildApp();
   const session = await loginAs(app, "admin", "admin");
 
   const deviceList = await request(app)
@@ -136,7 +205,7 @@ test("updates only device name and address for the owner", async () => {
 });
 
 test("returns null when the device has no config", async () => {
-  const app = buildApp();
+  const app = await buildApp();
   const session = await loginAs(app, "user", "user");
 
   const claimResponse = await request(app)
@@ -152,4 +221,30 @@ test("returns null when the device has no config", async () => {
 
   assert.equal(configResponse.status, 200);
   assert.equal(configResponse.body.config, null);
+});
+
+test("updates profile and password with backend persistence", async () => {
+  const app = await buildApp();
+  const session = await loginAs(app, "admin", "admin");
+
+  const profileResponse = await request(app)
+    .patch("/api/auth/profile")
+    .set("Authorization", `Bearer ${session.token}`)
+    .send({ displayName: "Admin Renamed" });
+
+  assert.equal(profileResponse.status, 200);
+  assert.equal(profileResponse.body.user.displayName, "Admin Renamed");
+
+  const passwordResponse = await request(app)
+    .patch("/api/auth/password")
+    .set("Authorization", `Bearer ${session.token}`)
+    .send({ oldPassword: "admin", newPassword: "admin-123" });
+
+  assert.equal(passwordResponse.status, 204);
+
+  const reloginResponse = await request(app)
+    .post("/api/auth/login")
+    .send({ username: "admin", password: "admin-123" });
+
+  assert.equal(reloginResponse.status, 200);
 });
