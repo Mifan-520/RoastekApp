@@ -47,9 +47,11 @@ CREATE TABLE IF NOT EXISTS devices (
 );
 
 ALTER TABLE sessions ADD COLUMN IF NOT EXISTS expires_at TEXT;
+ALTER TABLE devices ADD COLUMN IF NOT EXISTS claim_code TEXT;
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS connection_history_json TEXT NOT NULL DEFAULT '[]';
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS alarms_json TEXT NOT NULL DEFAULT '[]';
 ALTER TABLE devices ADD COLUMN IF NOT EXISTS config_payload_json TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS devices_claim_code_key ON devices (claim_code);
 `;
 
 function nowIso() {
@@ -172,53 +174,51 @@ async function seedIfNeeded(client, config) {
     }
   }
 
-  const deviceCount = await client.query("SELECT COUNT(*)::int AS count FROM devices");
-
-  if (deviceCount.rows[0].count === 0) {
-    for (const device of seedDevices) {
-      await client.query(
-        `INSERT INTO devices (
-          id, claim_code, default_name, default_type, default_location, default_address, default_config_name,
-          status, last_active, last_seen_at, created_at, updated_at, bound_at, connection_history_json, alarms_json, owner_id,
-          name, type, location, address, config_name, config_payload_json
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7,
-          $8, $9, $10, $11, $12, $13, $14, $15,
-          $16, $17, $18, $19, $20, $21, $22
-        )`,
-        [
-          device.id,
-          device.claimCode,
-          device.defaultName,
-          device.defaultType,
-          device.defaultLocation,
-          device.defaultAddress,
-          device.defaultConfigName,
-          device.status,
-          device.lastActive,
-          device.lastSeenAt,
-          device.createdAt,
-          device.updatedAt,
-          device.boundAt,
-          JSON.stringify(device.connectionHistory || []),
-          JSON.stringify(device.alarms || []),
-          device.ownerId,
-          device.name,
-          device.type,
-          device.location,
-          device.address,
-          device.config?.name ?? null,
-          device.config?.payload ? JSON.stringify(device.config.payload) : null,
-        ]
-      );
-    }
+  for (const device of seedDevices) {
+    await client.query(
+      `INSERT INTO devices (
+        id, claim_code, default_name, default_type, default_location, default_address, default_config_name,
+        status, last_active, last_seen_at, created_at, updated_at, bound_at, connection_history_json, alarms_json, owner_id,
+        name, type, location, address, config_name, config_payload_json
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7,
+        $8, $9, $10, $11, $12, $13, $14, $15,
+        $16, $17, $18, $19, $20, $21, $22
+      ) ON CONFLICT (id) DO UPDATE SET
+        claim_code = EXCLUDED.claim_code,
+        default_address = EXCLUDED.default_address`,
+      [
+        device.id,
+        device.claimCode,
+        device.defaultName,
+        device.defaultType,
+        device.defaultLocation,
+        device.defaultAddress,
+        device.defaultConfigName,
+        device.status,
+        device.lastActive,
+        device.lastSeenAt,
+        device.createdAt,
+        device.updatedAt,
+        device.boundAt,
+        JSON.stringify(device.connectionHistory || []),
+        JSON.stringify(device.alarms || []),
+        device.ownerId,
+        device.name,
+        device.type,
+        device.location,
+        device.address,
+        device.config?.name ?? null,
+        device.config?.payload ? JSON.stringify(device.config.payload) : null,
+      ]
+    );
   }
 
   for (const device of seedDevices) {
     await client.query(
       `UPDATE devices
        SET connection_history_json = CASE
-             WHEN connection_history_json IS NULL OR connection_history_json = '[]' THEN $2
+             WHEN connection_history_json IS NULL THEN $2
              ELSE connection_history_json
            END,
            alarms_json = CASE
@@ -229,9 +229,12 @@ async function seedIfNeeded(client, config) {
              WHEN config_payload_json IS NULL THEN $4
              ELSE config_payload_json
            END,
-           default_address = COALESCE(default_address, $5),
-           address = COALESCE(address, $5)
-       WHERE id = $1`,
+           default_address = $5,
+           address = CASE
+             WHEN owner_id IS NULL THEN $5
+             ELSE address
+           END
+        WHERE id = $1`,
       [
         device.id,
         JSON.stringify(device.connectionHistory || []),
