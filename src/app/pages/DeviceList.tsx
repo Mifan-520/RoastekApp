@@ -1,9 +1,9 @@
 import { useNavigate } from "react-router";
-import { MOCK_ALARMS, Alarm } from "../data/mock";
 import { Settings, Server, Plus, X, Check, ArchiveX, Edit2, AlertTriangle, Info, AlertCircle, Trash2, User } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getSession } from "../services/auth";
 import { claimDevice, deleteDevice, getDevices, updateDevice, type DeviceRecord } from "../services/devices";
+import { getVisibleDeviceAlarms } from "../utils/device-alarms.js";
 
 export function DeviceList() {
   const navigate = useNavigate();
@@ -31,36 +31,6 @@ export function DeviceList() {
 
   const [deleteConfirmGroupId, setDeleteConfirmGroupId] = useState<string | null>(null);
   const [isAlarmsModalOpen, setIsAlarmsModalOpen] = useState(false);
-  const [alarms, setAlarms] = useState<Alarm[]>(() => {
-    const saved = localStorage.getItem("app_alarms");
-    return saved ? JSON.parse(saved) : MOCK_ALARMS;
-  });
-
-  // Sync alarms with localStorage whenever they change
-  useEffect(() => {
-    // Force reset if cache still has relative times ('前') so new format applies
-    if (alarms.some(a => a.time.includes("前"))) {
-      setAlarms(MOCK_ALARMS);
-      localStorage.setItem("app_alarms", JSON.stringify(MOCK_ALARMS));
-    } else {
-      localStorage.setItem("app_alarms", JSON.stringify(alarms));
-    }
-  }, [alarms]);
-
-  // Handle cross-tab/page sync (though same window navigation should be fine with state, but good for robust sync)
-  useEffect(() => {
-    const handleStorage = () => {
-      const saved = localStorage.getItem("app_alarms");
-      if (saved) setAlarms(JSON.parse(saved));
-    };
-    window.addEventListener('storage', handleStorage);
-    // Also check on focus in case it was changed in another page/tab and state is stale
-    window.addEventListener('focus', handleStorage);
-    return () => {
-      window.removeEventListener('storage', handleStorage);
-      window.removeEventListener('focus', handleStorage);
-    };
-  }, []);
 
   const [devices, setDevices] = useState<DeviceRecord[]>([]);
   const [isDevicesLoading, setIsDevicesLoading] = useState(true);
@@ -249,6 +219,7 @@ export function DeviceList() {
   const filteredDevices = activeTab === "all" 
     ? devices 
     : devices.filter(d => groups.find(g => g.id === activeTab)?.deviceIds.includes(d.id));
+  const alarms = getVisibleDeviceAlarms(devices);
 
   const handleDeleteAlarm = (e: React.MouseEvent, alarmId: string) => {
     e.stopPropagation();
@@ -434,7 +405,7 @@ export function DeviceList() {
                   <div>
                     <h4 className={`font-bold text-base ${device.status === 'online' ? 'text-slate-900' : 'text-slate-500'}`}>{device.name}</h4>
                     <div className="flex flex-col mt-1 space-y-0.5">
-                      <p className="text-xs text-slate-500 font-medium flex items-center"><span className="w-10 flex-shrink-0 text-slate-400">位置：</span><span className="truncate">{device.location}</span></p>
+                      <p className="text-xs text-slate-500 font-medium flex items-center"><span className="w-10 flex-shrink-0 text-slate-400">位置：</span><span className="truncate">{device.address || device.location}</span></p>
                     </div>
                   </div>
                 </div>
@@ -731,8 +702,7 @@ export function DeviceList() {
             </div>
             
             <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
-              {alarms.map((alarm: Alarm) => {
-                const device = devices.find(d => d.id === alarm.deviceId);
+              {alarms.map((alarm) => {
                 return (
                   <div key={alarm.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex space-x-4 relative overflow-hidden group/alarm">
                     <div className="absolute top-0 bottom-0 left-0 w-1 bg-rose-500" />
@@ -743,11 +713,11 @@ export function DeviceList() {
                        <div className="flex items-start justify-between mb-1">
                           <p className="text-sm font-bold text-slate-900 leading-snug pr-4">{alarm.message}</p>
                        </div>
-                       <div className="flex items-center space-x-2 text-xs text-slate-500 font-medium">
-                          <span>{device?.name || alarm.deviceId}</span>
+                        <div className="flex items-center space-x-2 text-xs text-slate-500 font-medium">
+                          <span>{alarm.deviceName || alarm.deviceId}</span>
                           <span className="w-1 h-1 rounded-full bg-slate-300" />
                           <span>{alarm.time}</span>
-                       </div>
+                        </div>
                     </div>
                   </div>
                 );
