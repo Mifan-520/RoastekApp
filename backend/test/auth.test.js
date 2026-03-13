@@ -104,11 +104,11 @@ test("claims an unbound device with a fixed code and custom name", async () => {
   const claimResponse = await request(app)
     .post("/api/devices/claim")
     .set("Authorization", `Bearer ${session.token}`)
-    .send({ claimCode: "Q4R8T2VW", name: "我的测试设备" });
+    .send({ claimCode: "32RXMFN9", name: "我的测试设备" });
 
   assert.equal(claimResponse.status, 201);
   assert.equal(claimResponse.body.device.name, "我的测试设备");
-  assert.equal(claimResponse.body.device.claimCode, "Q4R8T2VW");
+  assert.equal(claimResponse.body.device.claimCode, "32RXMFN9");
 
   const listResponse = await request(app)
     .get("/api/devices")
@@ -127,14 +127,14 @@ test("prevents claiming an already bound device until it is deleted", async () =
   const firstClaim = await request(app)
     .post("/api/devices/claim")
     .set("Authorization", `Bearer ${userSession.token}`)
-    .send({ claimCode: "M7N5P2LX", name: "用户设备" });
+    .send({ claimCode: "9WN62YF8", name: "用户设备" });
 
   assert.equal(firstClaim.status, 201);
 
   const duplicateClaim = await request(app)
     .post("/api/devices/claim")
     .set("Authorization", `Bearer ${adminSession.token}`)
-    .send({ claimCode: "M7N5P2LX", name: "管理员设备" });
+    .send({ claimCode: "9WN62YF8", name: "管理员设备" });
 
   assert.equal(duplicateClaim.status, 409);
 
@@ -147,7 +147,7 @@ test("prevents claiming an already bound device until it is deleted", async () =
   const secondClaim = await request(app)
     .post("/api/devices/claim")
     .set("Authorization", `Bearer ${adminSession.token}`)
-    .send({ claimCode: "M7N5P2LX", name: "管理员设备" });
+    .send({ claimCode: "9WN62YF8", name: "管理员设备" });
 
   assert.equal(secondClaim.status, 201);
   assert.equal(secondClaim.body.device.name, "管理员设备");
@@ -162,11 +162,11 @@ test("allows only one successful claim in concurrent requests", async () => {
     request(app)
       .post("/api/devices/claim")
       .set("Authorization", `Bearer ${adminSession.token}`)
-      .send({ claimCode: "Q4R8T2VW", name: "管理员并发设备" }),
+      .send({ claimCode: "32RXMFN9", name: "管理员并发设备" }),
     request(app)
       .post("/api/devices/claim")
       .set("Authorization", `Bearer ${userSession.token}`)
-      .send({ claimCode: "Q4R8T2VW", name: "用户并发设备" }),
+      .send({ claimCode: "32RXMFN9", name: "用户并发设备" }),
   ]);
 
   const statuses = [first.status, second.status].sort((a, b) => a - b);
@@ -177,13 +177,16 @@ test("updates only device name and address for the owner", async () => {
   const app = await buildApp();
   const session = await loginAs(app, "admin", "admin");
 
-  const deviceList = await request(app)
-    .get("/api/devices")
-    .set("Authorization", `Bearer ${session.token}`);
+  // First claim a device
+  const claimResponse = await request(app)
+    .post("/api/devices/claim")
+    .set("Authorization", `Bearer ${session.token}`)
+    .send({ claimCode: "5HXB39VW", name: "初始名称", address: "初始地址" });
 
-  assert.equal(deviceList.status, 200);
-  const deviceId = deviceList.body.devices[0].id;
+  assert.equal(claimResponse.status, 201);
+  const deviceId = claimResponse.body.device.id;
 
+  // Then update it
   const updateDevice = await request(app)
     .patch(`/api/devices/${deviceId}`)
     .set("Authorization", `Bearer ${session.token}`)
@@ -211,7 +214,7 @@ test("returns null when the device has no config", async () => {
   const claimResponse = await request(app)
     .post("/api/devices/claim")
     .set("Authorization", `Bearer ${session.token}`)
-    .send({ claimCode: "Z8C6V4BN", name: "无组态设备" });
+    .send({ claimCode: "MFH4LUWN", name: "无组态设备" });
 
   assert.equal(claimResponse.status, 201);
 
