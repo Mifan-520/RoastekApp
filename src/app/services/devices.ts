@@ -3,6 +3,23 @@ import { authRequest } from "./auth";
 export interface DeviceConfigRecord {
   id: string;
   name: string;
+  payload?: {
+    chartData: Array<{ name: string; value: number }>;
+    switches: { s1: boolean; s2: boolean };
+  } | null;
+}
+
+export interface DeviceAlarmRecord {
+  id: string;
+  message: string;
+  time: string;
+}
+
+export interface DeviceConnectionRecord {
+  id: string;
+  type: "online" | "offline";
+  time: string;
+  label: string;
 }
 
 export interface DeviceRecord {
@@ -14,6 +31,12 @@ export interface DeviceRecord {
   address: string;
   status: "online" | "offline";
   lastActive: string;
+  lastSeenAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  boundAt: string | null;
+  connectionHistory: DeviceConnectionRecord[];
+  alarms: DeviceAlarmRecord[];
   config: DeviceConfigRecord | null;
 }
 

@@ -1,27 +1,82 @@
 import { useNavigate, useParams } from "react-router";
 import { ChevronLeft, Fan, Power } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
-import { MOCK_DEVICES, MOCK_CONFIGS } from "../data/mock";
+import { getDevice, getDeviceConfig, type DeviceRecord, type DeviceConfigRecord } from "../services/devices";
 
 const STYLED_COLORS = ["#be123c", "#f43f5e", "#ffe4e6"];
-const chartData = [
-  { name: "动力系统", value: 45 },
-  { name: "温控系统", value: 30 },
-  { name: "照明及其他", value: 25 },
-];
 
 export function DeviceUI() {
-  const { id, configId } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
 
   const [switches, setSwitches] = useState({ s1: true, s2: false });
 
-  const device = MOCK_DEVICES.find((d) => d.id === id);
-  const configs = MOCK_CONFIGS[id || ""] || [];
-  const config = configs.find((c) => c.id === configId);
+  const [device, setDevice] = useState<DeviceRecord | null>(null);
+  const [config, setConfig] = useState<DeviceConfigRecord | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  if (!device || !config) return null;
+  useEffect(() => {
+    let active = true;
+
+    async function loadConfigScreen() {
+      if (!id) {
+        return;
+      }
+
+      setIsLoading(true);
+
+      try {
+        const [nextDevice, nextConfig] = await Promise.all([getDevice(id), getDeviceConfig(id)]);
+        if (!active) {
+          return;
+        }
+        setDevice(nextDevice);
+        setConfig(nextConfig);
+      } catch {
+        if (!active) {
+          return;
+        }
+        setDevice(null);
+        setConfig(null);
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadConfigScreen();
+    return () => {
+      active = false;
+    };
+  }, [id]);
+
+  useEffect(() => {
+    if (config?.payload?.switches) {
+      setSwitches(config.payload.switches);
+    }
+  }, [config]);
+
+  if (isLoading) {
+    return <div className="flex flex-col min-h-full items-center justify-center p-6 bg-[#0d0708] text-slate-100"><h2 className="text-xl font-bold">加载中...</h2></div>;
+  }
+
+  if (!device || !config) {
+    return (
+      <div className="flex flex-col min-h-full bg-[#0d0708] text-slate-100 relative">
+        <div className="flex items-center p-6 sticky top-0 bg-[#0d0708]/80 backdrop-blur-xl z-50 border-b border-rose-900/30">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2 mr-2 rounded-full hover:bg-rose-950/50 transition-colors text-rose-100">
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-[17px] font-bold tracking-tight text-white flex-1">组态界面</h1>
+        </div>
+        <div className="flex-1 flex items-center justify-center p-6 text-slate-400 font-medium">无组态</div>
+      </div>
+    );
+  }
+
+  const chartData = config.payload?.chartData || [];
 
   return (
     <div className="flex flex-col min-h-full bg-[#0d0708] text-slate-100 relative">

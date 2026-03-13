@@ -1,47 +1,57 @@
 import { useNavigate, useParams } from "react-router";
 import { ChevronLeft, Activity, Droplet, FileText, Power, Zap, Settings, AlertTriangle, AlertCircle, Trash2, Clock, Smartphone, SignalMedium, SignalLow, LayoutTemplate } from "lucide-react";
-import { MOCK_DEVICES, MOCK_CONFIGS, MOCK_ALARMS, Alarm } from "../data/mock";
 import { useState, useEffect } from "react";
-
-// Mock data for connection history
-const CONNECTION_HISTORY = [
-  { id: 'ch-1', type: 'online', time: '03-12 15:10', label: '设备上线' },
-  { id: 'ch-2', type: 'offline', time: '03-12 14:45', label: '连接断开' },
-  { id: 'ch-3', type: 'online', time: '03-12 09:30', label: '设备上线' },
-  { id: 'ch-4', type: 'offline', time: '03-11 22:15', label: '连接断开' },
-  { id: 'ch-5', type: 'online', time: '03-11 08:00', label: '设备上线' },
-  { id: 'ch-6', type: 'offline', time: '03-10 19:45', label: '连接断开' },
-  { id: 'ch-7', type: 'online', time: '03-10 07:30', label: '设备上线' },
-];
+import { getDevice, getDeviceConfig, type DeviceRecord, type DeviceConfigRecord } from "../services/devices";
 
 export function DeviceOverview() {
   const { id } = useParams();
   const navigate = useNavigate();
-
-  const device = MOCK_DEVICES.find((d) => d.id === id);
-  const configs = MOCK_CONFIGS[id || ""] || [];
+  const [device, setDevice] = useState<DeviceRecord | null>(null);
+  const [config, setConfig] = useState<DeviceConfigRecord | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   
-  const [allAlarms, setAllAlarms] = useState<Alarm[]>(() => {
-    const saved = localStorage.getItem("app_alarms");
-    return saved ? JSON.parse(saved) : MOCK_ALARMS;
-  });
-
-  // Sync with localStorage
   useEffect(() => {
-    // If cached alarms have old relative format, reset them to the new mock data
-    if (allAlarms.some(a => a.time.includes("分钟前") || a.time.includes("小时前") || a.time.includes("前"))) {
-      setAllAlarms(MOCK_ALARMS);
-      localStorage.setItem("app_alarms", JSON.stringify(MOCK_ALARMS));
-    } else {
-      localStorage.setItem("app_alarms", JSON.stringify(allAlarms));
+    let active = true;
+
+    async function loadDevice() {
+      if (!id) {
+        return;
+      }
+
+      setIsLoading(true);
+
+      try {
+        const [nextDevice, nextConfig] = await Promise.all([getDevice(id), getDeviceConfig(id)]);
+        if (!active) {
+          return;
+        }
+        setDevice(nextDevice);
+        setConfig(nextConfig);
+      } catch {
+        if (!active) {
+          return;
+        }
+        setDevice(null);
+        setConfig(null);
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
     }
-  }, [allAlarms]);
 
-  const alarms = allAlarms.filter((a: Alarm) => a.deviceId === id);
+    loadDevice();
+    return () => {
+      active = false;
+    };
+  }, [id]);
 
-  const handleDeleteAlarm = (alarmId: string) => {
-    setAllAlarms(allAlarms.filter((a: Alarm) => a.id !== alarmId));
-  };
+  const alarms = device?.alarms || [];
+  const connectionHistory = device?.connectionHistory || [];
+
+  if (isLoading) {
+    return <div className="flex flex-col min-h-full items-center justify-center p-6 bg-slate-50"><h2 className="text-xl font-bold text-slate-800">加载中...</h2></div>;
+  }
 
   if (!device) {
     return (
@@ -88,7 +98,7 @@ export function DeviceOverview() {
             </span>
           </div>
           <div className="text-rose-100/80 text-sm font-medium flex flex-col space-y-1">
-            <span>{device.location}</span>
+            <span>{device.address}</span>
           </div>
         </div>
       </div>
@@ -106,7 +116,7 @@ export function DeviceOverview() {
           </div>
           
           <div className="space-y-4 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
-            {CONNECTION_HISTORY.map((record) => (
+            {connectionHistory.map((record) => (
               <div key={record.id} className="flex items-center justify-between px-1">
                 <div className="flex items-center">
                     <div className={`w-8 h-8 rounded-xl flex items-center justify-center mr-3 ${
@@ -131,12 +141,12 @@ export function DeviceOverview() {
           <div className="flex items-center justify-between mb-4 px-1">
             <h3 className="text-base font-bold text-slate-800 tracking-tight flex items-center">
               报警信息
-              {alarms.length > 0 && <span className="flex w-2 h-2 ml-2 rounded-full bg-red-500 animate-pulse"></span>}
+            {alarms.length > 0 && <span className="flex w-2 h-2 ml-2 rounded-full bg-red-500 animate-pulse"></span>}
             </h3>
             <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">{alarms.length}条记录</span>
           </div>
           <div className="space-y-3 max-h-[180px] overflow-y-auto pr-2 custom-scrollbar">
-            {alarms.length > 0 ? alarms.map((alarm: Alarm) => (
+            {alarms.length > 0 ? alarms.map((alarm) => (
               <div key={alarm.id} className="p-4 rounded-2xl border flex items-start bg-red-50/50 border-red-100">
                 <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 mr-3 flex-shrink-0" />
                 <div className="flex-1">
@@ -146,7 +156,7 @@ export function DeviceOverview() {
                       <p className="text-xs text-slate-500 mt-1 font-medium">{alarm.time}</p>
                     </div>
                     <button 
-                      onClick={() => handleDeleteAlarm(alarm.id)}
+                      onClick={() => {}}
                       className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-2"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -168,10 +178,10 @@ export function DeviceOverview() {
         </div>
 
         <div className="grid grid-cols-1 gap-4">
-          {configs.length > 0 ? (
+          {config ? (
             <div
-              key={configs[0].id}
-              onClick={() => navigate(`/devices/${device.id}/config/${configs[0].id}`)}
+              key={config.id}
+              onClick={() => navigate(`/devices/${device.id}/config/${config.id}`)}
               className="bg-white p-5 rounded-3xl border border-slate-200/60 shadow-sm hover:shadow-md transition-all cursor-pointer active:scale-[0.98] flex items-center group"
             >
               <div className="w-14 h-14 bg-rose-50 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-inner">
