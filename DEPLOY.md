@@ -21,8 +21,11 @@ You can either:
 
 ```bash
 cp .env.example .env
+edit .env and replace all change-this-* passwords
 bash scripts/server-up.sh
 ```
+
+For a real server domain, also update `FRONTEND_ORIGIN` in `.env` to your actual public origin, for example `https://app.your-company.com`.
 
 Open:
 
@@ -33,6 +36,8 @@ Open:
 ```bash
 bash scripts/server-update.sh
 ```
+
+Run this command from the repository root after `git clone`. If the directory is not a git repository, the script will skip `git pull` and only rebuild containers.
 
 ## Do you still need Nginx?
 

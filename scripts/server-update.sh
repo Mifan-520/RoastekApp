@@ -6,7 +6,11 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "${PROJECT_ROOT}"
 
-git pull
+if [ -d .git ]; then
+  git pull --ff-only
+else
+  echo "Current directory is not a git repository. Skip git pull and continue with docker compose."
+fi
 
 if [ -f .env ]; then
   set -a

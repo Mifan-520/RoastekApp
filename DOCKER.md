@@ -13,7 +13,7 @@ Open:
 Default login:
 
 - username: `admin`
-- password: `admin`
+- password: value from `.env`
 
 ## Stop
 
@@ -51,3 +51,10 @@ If the default port is occupied:
 ```bash
 WEB_PORT=8080 docker compose up --build -d
 ```
+
+Required `.env` values before first production-style start:
+
+- `FRONTEND_ORIGIN`
+- `POSTGRES_PASSWORD`
+- `ADMIN_PASSWORD`
+- `USER_PASSWORD`
