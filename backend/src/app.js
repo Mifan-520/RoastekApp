@@ -211,5 +211,14 @@ export async function createApp(options = {}) {
     res.json({ config: { ...result.config } });
   });
 
+  app.delete("/api/devices/:id/alarms/:alarmId", requireAuth, async (req, res) => {
+    const result = await store.deleteAlarm({ userId: req.user.id, deviceId: req.params.id, alarmId: req.params.alarmId });
+    if (result.status !== 204) {
+      res.status(result.status).json({ message: result.error });
+      return;
+    }
+    res.status(204).send();
+  });
+
   return app;
 }

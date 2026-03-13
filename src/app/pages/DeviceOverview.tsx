@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from "react-router";
 import { ChevronLeft, Activity, Droplet, FileText, Power, Zap, Settings, AlertTriangle, AlertCircle, Trash2, Clock, Smartphone, SignalMedium, SignalLow, LayoutTemplate } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getDevice, getDeviceConfig, type DeviceRecord, type DeviceConfigRecord } from "../services/devices";
+import { getDevice, getDeviceConfig, deleteAlarm, type DeviceRecord, type DeviceConfigRecord } from "../services/devices";
 
 export function DeviceOverview() {
   const { id } = useParams();
@@ -48,6 +48,17 @@ export function DeviceOverview() {
 
   const alarms = device?.alarms || [];
   const connectionHistory = device?.connectionHistory || [];
+
+  const handleDeleteAlarm = async (alarmId: string) => {
+    if (!id) return;
+    try {
+      await deleteAlarm(id, alarmId);
+      const updated = await getDevice(id);
+      setDevice(updated);
+    } catch (err) {
+      console.error("删除报警失败:", err);
+    }
+  };
 
   if (isLoading) {
     return <div className="flex flex-col min-h-full items-center justify-center p-6 bg-slate-50"><h2 className="text-xl font-bold text-slate-800">加载中...</h2></div>;
@@ -156,7 +167,7 @@ export function DeviceOverview() {
                       <p className="text-xs text-slate-500 mt-1 font-medium">{alarm.time}</p>
                     </div>
                     <button 
-                      onClick={() => {}}
+                      onClick={() => handleDeleteAlarm(alarm.id)}
                       className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors ml-2"
                     >
                       <Trash2 className="w-4 h-4" />

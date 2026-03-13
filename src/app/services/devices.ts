@@ -105,3 +105,14 @@ export async function updateDeviceConfig(deviceId: string, input: { name: string
   const payload = await parseResponse<{ config: DeviceConfigRecord }>(response);
   return payload.config;
 }
+
+export async function deleteAlarm(deviceId: string, alarmId: string) {
+  const response = await authRequest(`/devices/${deviceId}/alarms/${alarmId}`, {
+    method: "DELETE",
+  });
+
+  if (!response.ok) {
+    const payload = await response.json();
+    throw new Error(payload.message || "删除报警失败");
+  }
+}

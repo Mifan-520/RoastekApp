@@ -388,6 +388,29 @@ export async function createStore(config, options = {}) {
       }
       return { status: 200, config: serializeDevice(result.rows[0]).config };
     },
+    async deleteAlarm({ userId, deviceId, alarmId }) {
+      const current = await this.getOwnedDevice(userId, deviceId);
+      if (!current) {
+        return { status: 404, error: "设备不存在" };
+      }
+
+      const alarms = current.alarms || [];
+      const filtered = alarms.filter((a) => a.id !== alarmId);
+      const alarmsJson = JSON.stringify(filtered);
+
+      const result = await client.query(
+        `UPDATE devices
+         SET alarms_json = $1, updated_at = $2
+         WHERE id = $3 AND owner_id = $4
+         RETURNING *`,
+        [alarmsJson, nowIso(), deviceId, userId]
+      );
+
+      if (!result.rows[0]) {
+        return { status: 404, error: "设备不存在" };
+      }
+      return { status: 204 };
+    },
     async updateProfile({ userId, displayName }) {
       const result = await client.query(
         `UPDATE users
