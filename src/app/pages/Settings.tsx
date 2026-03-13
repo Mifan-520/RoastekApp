@@ -1,11 +1,12 @@
 import { useNavigate } from "react-router";
 import { ChevronLeft, LogOut, Shield, User, X, Check, Lock } from "lucide-react";
-import { clearSession } from "../services/auth";
-import { useState } from "react";
+import { fetchCurrentUser, getSession, logout, saveSession, updatePassword, updateProfile } from "../services/auth";
+import { useEffect, useState } from "react";
 
 export function SettingsPage() {
   const navigate = useNavigate();
-  const [username, setUsername] = useState("Admin User");
+  const [username, setUsername] = useState(() => getSession()?.user.displayName || "Admin User");
+  const [roleLabel, setRoleLabel] = useState(() => getSession()?.user.roleLabel || "管理员");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [tempName, setTempName] = useState("");
 
@@ -14,8 +15,35 @@ export function SettingsPage() {
   const [newPass, setNewPass] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
 
-  const handleLogout = () => {
-    clearSession();
+  useEffect(() => {
+    let active = true;
+
+    async function loadCurrentUser() {
+      try {
+        const user = await fetchCurrentUser();
+        if (!active) return;
+        setUsername(user.displayName);
+        setRoleLabel(user.roleLabel);
+        const session = getSession();
+        if (session) {
+          saveSession({ ...session, user });
+        }
+      } catch (error) {
+        if (!active) return;
+        if (error instanceof Error && error.message.includes("未登录")) {
+          navigate("/login", { replace: true });
+        }
+      }
+    }
+
+    loadCurrentUser();
+    return () => {
+      active = false;
+    };
+  }, [navigate]);
+
+  const handleLogout = async () => {
+    await logout();
     navigate("/login", { replace: true });
   };
 
@@ -24,21 +52,35 @@ export function SettingsPage() {
     setIsEditModalOpen(true);
   };
 
-  const handleSaveName = () => {
+  const handleSaveName = async () => {
     if (tempName.trim()) {
-      setUsername(tempName.trim());
-      setIsEditModalOpen(false);
+      try {
+        const user = await updateProfile(tempName.trim());
+        setUsername(user.displayName);
+        setRoleLabel(user.roleLabel);
+        const session = getSession();
+        if (session) {
+          saveSession({ ...session, user });
+        }
+        setIsEditModalOpen(false);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : "更新账户信息失败");
+      }
     }
   };
 
-  const handleSavePassword = () => {
+  const handleSavePassword = async () => {
     if (newPass && newPass === confirmPass) {
-       // Logic to save password would go here
-       setIsPassModalOpen(false);
-       setOldPass("");
-       setNewPass("");
-       setConfirmPass("");
-       alert("密码修改成功");
+       try {
+         await updatePassword(oldPass, newPass);
+         setIsPassModalOpen(false);
+         setOldPass("");
+         setNewPass("");
+         setConfirmPass("");
+         alert("密码修改成功");
+       } catch (error) {
+         alert(error instanceof Error ? error.message : "密码修改失败");
+       }
     }
   };
 
@@ -59,7 +101,7 @@ export function SettingsPage() {
           </div>
           <div className="flex-1">
             <h3 className="text-lg font-bold text-slate-900 tracking-tight">{username}</h3>
-            <p className="text-sm text-slate-500 font-medium mt-0.5">管理员</p>
+            <p className="text-sm text-slate-500 font-medium mt-0.5">{roleLabel}</p>
           </div>
         </div>
 

@@ -108,3 +108,39 @@ export async function fetchCurrentUser() {
 
   return payload.user as SessionUser;
 }
+
+export async function updateProfile(displayName: string) {
+  const response = await authRequest("/auth/profile", {
+    method: "PATCH",
+    body: JSON.stringify({ displayName }),
+  });
+  const payload = await response.json();
+
+  if (!response.ok) {
+    throw new Error(payload.message || "更新账户信息失败");
+  }
+
+  return payload.user as SessionUser;
+}
+
+export async function updatePassword(oldPassword: string, newPassword: string) {
+  const response = await authRequest("/auth/password", {
+    method: "PATCH",
+    body: JSON.stringify({ oldPassword, newPassword }),
+  });
+
+  if (!response.ok) {
+    const payload = await response.json();
+    throw new Error(payload.message || "修改密码失败");
+  }
+}
+
+export async function logout() {
+  try {
+    await authRequest("/auth/logout", {
+      method: "POST",
+    });
+  } finally {
+    clearSession();
+  }
+}
