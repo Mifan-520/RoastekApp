@@ -1,0 +1,44 @@
+﻿
+> roastek-backend@0.1.0 test
+> node --test
+
+鉁?accepts admin login and returns admin role label (25.9812ms)
+鉁?accepts user login and returns user role label (4.512ms)
+鉁?rejects unauthenticated device list access (3.2782ms)
+鉁?claims an unbound device with a fixed code and custom name (12.2642ms)
+鉁?prevents claiming an already bound device until it is deleted (15.2076ms)
+鉁?updates device fields and its single config name for the owner (9.0093ms)
+鉁?returns null when the device has no config (8.2775ms)
+鈩?tests 7
+鈩?suites 0
+鈩?pass 6
+鈩?fail 1
+鈩?cancelled 0
+鈩?skipped 0
+鈩?todo 0
+鈩?duration_ms 307.6657
+
+鉁?failing tests:
+
+test at test\auth.test.js:135:1
+鉁?returns null when the device has no config (8.2775ms)
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+  + actual - expected
+  
+  + {
+  +   id: 'default',
+  +   name: '澶囩敤缁勬€佺晫闈?
+  + }
+  - null
+  
+      at TestContext.<anonymous> (file:///C:/Users/Mifan/Desktop/app/backend/test/auth.test.js:151:10)
+      at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+      at async Test.run (node:internal/test_runner/test:1113:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: { id: 'default', name: '澶囩敤缁勬€佺晫闈? },
+    expected: null,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }

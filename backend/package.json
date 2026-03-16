@@ -10,11 +10,9 @@
   },
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.21.2",
-    "pg": "^8.16.3"
+    "express": "^4.21.2"
   },
   "devDependencies": {
-    "pg-mem": "^3.0.5",
     "supertest": "^7.1.1"
   }
 }

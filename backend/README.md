@@ -2,18 +2,11 @@
 
 Minimal backend skeleton for local development and later Docker deployment.
 
-Runtime storage:
-
-- PostgreSQL in runtime
-- in-memory PostgreSQL for tests via `pg-mem`
-
 ## Endpoints
 
 - `GET /healthz`
 - `POST /api/auth/login`
 - `GET /api/auth/me`
-- `PATCH /api/auth/profile`
-- `PATCH /api/auth/password`
 - `GET /api/devices`
 - `GET /api/devices/:id`
 - `POST /api/devices/claim`

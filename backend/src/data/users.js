@@ -10,8 +10,8 @@ export function createSeedUsers(config) {
     },
     {
       id: "user-normal",
-      username: config.userUsername,
-      password: config.userPassword,
+      username: "user",
+      password: "user",
       displayName: "Normal User",
       role: "user",
       roleLabel: "用户",

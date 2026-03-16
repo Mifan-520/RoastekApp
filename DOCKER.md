@@ -1,14 +1,5 @@
 # Docker Run Guide
 
-## Important root directory rule
-
-Run every command in this file from `frontend/`.
-
-- Correct: `C:/Users/Mifan/Desktop/app/frontend`
-- Wrong: `C:/Users/Mifan/Desktop/app`
-
-The repository root also contains another `docker-compose.yml`, but that stack is not the real deployable app and must not be used for normal app deployment.
-
 ## First start
 
 ```bash
@@ -22,12 +13,7 @@ Open:
 Default login:
 
 - username: `admin`
-- password: value from `.env`
-
-Local-only shortcut:
-
-- `ALLOW_DEFAULT_PASSWORDS=true` may be used only for local Docker startup with known development credentials.
-- Keep `ALLOW_DEFAULT_PASSWORDS=false` for real servers and replace all passwords in `.env`.
+- password: `admin`
 
 ## Stop
 
@@ -65,28 +51,3 @@ If the default port is occupied:
 ```bash
 WEB_PORT=8080 docker compose up --build -d
 ```
-
-Required `.env` values before first production-style start:
-
-- `FRONTEND_ORIGIN`
-- `POSTGRES_PASSWORD`
-- `ADMIN_PASSWORD`
-- `USER_PASSWORD`
-- `ALLOW_DEFAULT_PASSWORDS=false`
-
-## After startup verify all of these
-
-```bash
-docker compose ps
-docker compose logs --tail 50 backend
-docker compose logs --tail 50 frontend
-curl http://127.0.0.1:8088
-curl http://127.0.0.1:3001/healthz
-```
-
-Expected result:
-
-- `roastek-postgres` is healthy
-- `roastek-backend` is healthy
-- `roastek-frontend` is up
-- `/healthz` returns `{"status":"ok"}`

@@ -1,20 +1,4 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: roastek-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-roastek}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-roastek}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   backend:
     build:
       context: ./backend
@@ -22,15 +6,10 @@ services:
     container_name: roastek-backend
     restart: unless-stopped
     environment:
-      NODE_ENV: production
       PORT: 3001
-      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:?set FRONTEND_ORIGIN in .env}
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-roastek}
-      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
-      USER_USERNAME: ${USER_USERNAME:-user}
-      USER_PASSWORD: ${USER_PASSWORD:?set USER_PASSWORD in .env}
-      ALLOW_DEFAULT_PASSWORDS: ${ALLOW_DEFAULT_PASSWORDS:-false}
+      FRONTEND_ORIGIN: http://localhost:${WEB_PORT:-8088},http://127.0.0.1:${WEB_PORT:-8088}
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: admin
     healthcheck:
       test:
         [
@@ -46,19 +25,14 @@ services:
 
   frontend:
     build:
-      context: .
+      context: ./frontend
       dockerfile: Dockerfile
       args:
         VITE_API_BASE_URL: /api
     container_name: roastek-frontend
     restart: unless-stopped
     depends_on:
-      postgres:
-        condition: service_healthy
       backend:
         condition: service_healthy
     ports:
       - "${WEB_PORT:-8088}:80"
-
-volumes:
-  postgres-data:

@@ -1,7 +1,8 @@
 import cors from "cors";
 import express from "express";
-import { config as defaultConfig } from "./config.js";
-import { createStore } from "./store.js";
+import { config } from "./config.js";
+import { seedDevices } from "./data/devices.js";
+import { createSeedUsers } from "./data/users.js";
 
 function serializeUser(user) {
   return {
@@ -26,25 +27,70 @@ function serializeDevice(device) {
     createdAt: device.createdAt,
     updatedAt: device.updatedAt,
     boundAt: device.boundAt,
-    connectionHistory: device.connectionHistory,
-    alarms: device.alarms,
     config: device.config ? { ...device.config } : null,
   };
 }
 
-export async function createApp(options = {}) {
-  const runtimeConfig = options.config || defaultConfig;
-  const store = options.store || await createStore(runtimeConfig, options);
+function nowIso() {
+  const now = new Date();
+  const timezoneOffset = -now.getTimezoneOffset();
+  const sign = timezoneOffset >= 0 ? "+" : "-";
+  const absoluteOffset = Math.abs(timezoneOffset);
+  const hours = String(Math.floor(absoluteOffset / 60)).padStart(2, "0");
+  const minutes = String(absoluteOffset % 60).padStart(2, "0");
+
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const date = String(now.getDate()).padStart(2, "0");
+  const hh = String(now.getHours()).padStart(2, "0");
+  const mm = String(now.getMinutes()).padStart(2, "0");
+  const ss = String(now.getSeconds()).padStart(2, "0");
+
+  return `${year}-${month}-${date}T${hh}:${mm}:${ss}${sign}${hours}:${minutes}`;
+}
+
+function buildDefaultConfig(name) {
+  return {
+    id: "default",
+    name: name || "默认组态",
+  };
+}
+
+function resetDevice(device) {
+  const timestamp = nowIso();
+  device.ownerId = null;
+  device.name = device.defaultName;
+  device.type = device.defaultType;
+  device.location = device.defaultLocation;
+  device.address = device.defaultAddress;
+  device.config = buildDefaultConfig(device.defaultConfigName);
+  device.updatedAt = timestamp;
+  device.boundAt = null;
+}
+
+function normalizeClaimCode(value) {
+  return String(value || "")
+    .trim()
+    .toUpperCase();
+}
+
+export function createApp() {
   const app = express();
+  const users = createSeedUsers(config);
+  const devices = structuredClone(seedDevices);
+  const tokenToUserId = new Map(users.map((user) => [`token-${user.username}`, user.id]));
 
-  app.locals.store = store;
+  function getUserByToken(token) {
+    const userId = tokenToUserId.get(token);
+    return users.find((user) => user.id === userId) || null;
+  }
 
-  async function requireAuth(req, res, next) {
+  function requireAuth(req, res, next) {
     const authorization = req.headers.authorization || "";
     const token = authorization.startsWith("Bearer ")
       ? authorization.slice("Bearer ".length)
       : "";
-    const user = await store.findUserByToken(token);
+    const user = getUserByToken(token);
 
     if (!user) {
       res.status(401).json({ message: "未登录或登录已失效" });
@@ -52,17 +98,28 @@ export async function createApp(options = {}) {
     }
 
     req.user = user;
-    req.token = token;
     next();
+  }
+
+  function getOwnedDevice(req, res) {
+    const device = devices.find((item) => item.id === req.params.id && item.ownerId === req.user.id);
+
+    if (!device) {
+      res.status(404).json({ message: "设备不存在" });
+      return null;
+    }
+
+    return device;
   }
 
   app.use(
     cors({
       origin(origin, callback) {
-        if (!origin || runtimeConfig.frontendOrigins.includes(origin)) {
+        if (!origin || config.frontendOrigins.includes(origin)) {
           callback(null, true);
           return;
         }
+
         callback(new Error("CORS origin not allowed"));
       },
       credentials: false,
@@ -74,64 +131,37 @@ export async function createApp(options = {}) {
     res.json({ status: "ok" });
   });
 
-  app.post("/api/auth/login", async (req, res) => {
+  app.post("/api/auth/login", (req, res) => {
     const { username, password } = req.body ?? {};
-    const user = await store.findUserByCredentials(username, password);
+    const user = users.find((item) => item.username === username && item.password === password);
 
-    if (!user) {
-      res.status(401).json({ message: "用户名或密码错误" });
+    if (user) {
+      res.json({
+        token: `token-${user.username}`,
+        user: serializeUser(user),
+      });
       return;
     }
 
-    const token = await store.createSession(user.id);
-    res.json({ token, user: serializeUser(user) });
+    res.status(401).json({
+      message: "用户名或密码错误",
+    });
   });
 
   app.get("/api/auth/me", requireAuth, (req, res) => {
     res.json({ user: serializeUser(req.user) });
   });
 
-  app.post("/api/auth/logout", requireAuth, async (req, res) => {
-    await store.deleteSession(req.token);
-    res.status(204).send();
+  app.get("/api/devices", requireAuth, (req, res) => {
+    const ownedDevices = devices
+      .filter((device) => device.ownerId === req.user.id)
+      .map(serializeDevice);
+
+    res.json({ devices: ownedDevices });
   });
 
-  app.patch("/api/auth/profile", requireAuth, async (req, res) => {
-    const displayName = String(req.body?.displayName || "").trim();
-    if (!displayName) {
-      res.status(400).json({ message: "显示名称不能为空" });
-      return;
-    }
-
-    const user = await store.updateProfile({ userId: req.user.id, displayName });
-    res.json({ user: serializeUser(user) });
-  });
-
-  app.patch("/api/auth/password", requireAuth, async (req, res) => {
-    const oldPassword = String(req.body?.oldPassword || "");
-    const newPassword = String(req.body?.newPassword || "");
-
-    if (!oldPassword || !newPassword) {
-      res.status(400).json({ message: "密码不能为空" });
-      return;
-    }
-
-    const result = await store.updatePassword({ userId: req.user.id, oldPassword, newPassword });
-    if (result.status !== 204) {
-      res.status(result.status).json({ message: result.error });
-      return;
-    }
-
-    res.status(204).send();
-  });
-
-  app.get("/api/devices", requireAuth, async (req, res) => {
-    const devices = await store.listOwnedDevices(req.user.id);
-    res.json({ devices: devices.map(serializeDevice) });
-  });
-
-  app.post("/api/devices/claim", requireAuth, async (req, res) => {
-    const claimCode = String(req.body?.claimCode || "").trim().toUpperCase();
+  app.post("/api/devices/claim", requireAuth, (req, res) => {
+    const claimCode = normalizeClaimCode(req.body?.claimCode);
     const name = String(req.body?.name || "").trim();
     const address = String(req.body?.address || "").trim();
 
@@ -139,85 +169,112 @@ export async function createApp(options = {}) {
       res.status(400).json({ message: "设备码格式不正确" });
       return;
     }
+
     if (!name) {
       res.status(400).json({ message: "设备名称不能为空" });
       return;
     }
 
-    const result = await store.claimDevice({ userId: req.user.id, claimCode, name, address });
-    if (!result.device) {
-      res.status(result.status).json({ message: result.error });
+    const device = devices.find((item) => item.claimCode === claimCode);
+
+    if (!device) {
+      res.status(404).json({ message: "设备码不存在" });
       return;
     }
 
-    res.status(result.status).json({ device: serializeDevice(result.device) });
+    if (device.ownerId) {
+      res.status(409).json({ message: "该设备已被绑定" });
+      return;
+    }
+
+    device.ownerId = req.user.id;
+    device.name = name;
+    device.address = address || device.defaultAddress;
+    device.boundAt = nowIso();
+    device.updatedAt = device.boundAt;
+
+    res.status(201).json({ device: serializeDevice(device) });
   });
 
-  app.get("/api/devices/:id", requireAuth, async (req, res) => {
-    const device = await store.getOwnedDevice(req.user.id, req.params.id);
+  app.get("/api/devices/:id", requireAuth, (req, res) => {
+    const device = getOwnedDevice(req, res);
+
     if (!device) {
-      res.status(404).json({ message: "设备不存在" });
       return;
     }
+
     res.json({ device: serializeDevice(device) });
   });
 
-  app.patch("/api/devices/:id", requireAuth, async (req, res) => {
+  app.patch("/api/devices/:id", requireAuth, (req, res) => {
+    const device = getOwnedDevice(req, res);
+
+    if (!device) {
+      return;
+    }
+
     const name = String(req.body?.name || "").trim();
+    const type = String(req.body?.type || "").trim();
+    const location = String(req.body?.location || "").trim();
     const address = String(req.body?.address || "").trim();
-    if (!name || !address) {
-      res.status(400).json({ message: "设备名称和地址不能为空" });
+
+    if (!name || !location) {
+      res.status(400).json({ message: "设备名称和位置不能为空" });
       return;
     }
 
-    const device = await store.updateDevice({ userId: req.user.id, deviceId: req.params.id, name, address });
-    if (!device) {
-      res.status(404).json({ message: "设备不存在" });
-      return;
-    }
+    device.name = name;
+    if (type) device.type = type;
+    device.location = location;
+    device.address = address || device.address;
+    device.updatedAt = nowIso();
+
     res.json({ device: serializeDevice(device) });
   });
 
-  app.delete("/api/devices/:id", requireAuth, async (req, res) => {
-    const removed = await store.unbindDevice({ userId: req.user.id, deviceId: req.params.id });
-    if (!removed) {
-      res.status(404).json({ message: "设备不存在" });
+  app.delete("/api/devices/:id", requireAuth, (req, res) => {
+    const device = getOwnedDevice(req, res);
+
+    if (!device) {
       return;
     }
+
+    resetDevice(device);
     res.status(204).send();
   });
 
-  app.get("/api/devices/:id/config", requireAuth, async (req, res) => {
-    const device = await store.getOwnedDevice(req.user.id, req.params.id);
+  app.get("/api/devices/:id/config", requireAuth, (req, res) => {
+    const device = getOwnedDevice(req, res);
+
     if (!device) {
-      res.status(404).json({ message: "设备不存在" });
       return;
     }
-    res.json({ config: device.config ? { ...device.config } : null });
+
+    res.json({ config: device.config || null });
   });
 
-  app.patch("/api/devices/:id/config", requireAuth, async (req, res) => {
+  app.patch("/api/devices/:id/config", requireAuth, (req, res) => {
+    const device = getOwnedDevice(req, res);
+
+    if (!device) {
+      return;
+    }
+
+    if (!device.config) {
+      res.status(404).json({ message: "当前设备无组态" });
+      return;
+    }
+
     const name = String(req.body?.name || "").trim();
+
     if (!name) {
       res.status(400).json({ message: "组态名称不能为空" });
       return;
     }
 
-    const result = await store.updateDeviceConfig({ userId: req.user.id, deviceId: req.params.id, name });
-    if (!result.config) {
-      res.status(result.status).json({ message: result.error });
-      return;
-    }
-    res.json({ config: { ...result.config } });
-  });
-
-  app.delete("/api/devices/:id/alarms/:alarmId", requireAuth, async (req, res) => {
-    const result = await store.deleteAlarm({ userId: req.user.id, deviceId: req.params.id, alarmId: req.params.alarmId });
-    if (result.status !== 204) {
-      res.status(result.status).json({ message: result.error });
-      return;
-    }
-    res.status(204).send();
+    device.config.name = name;
+    device.updatedAt = nowIso();
+    res.json({ config: { ...device.config } });
   });
 
   return app;
