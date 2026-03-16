@@ -13,6 +13,7 @@ export interface DeviceAlarmRecord {
   id: string;
   message: string;
   time: string;
+  level: string;
 }
 
 export interface DeviceConnectionRecord {
@@ -30,7 +31,7 @@ export interface DeviceRecord {
   location: string;
   address: string;
   status: "online" | "offline";
-  lastActive: string;
+  lastActive: string | null;
   lastSeenAt: string | null;
   createdAt: string;
   updatedAt: string;
