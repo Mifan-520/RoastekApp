@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { getSession } from "../services/auth";
 import { claimDevice, deleteDevice, getDevices, updateDevice, type DeviceRecord } from "../services/devices";
 import { getVisibleDeviceAlarms } from "../utils/device-alarms.js";
+import { getDeviceStatsSummary } from "../utils/device-stats.js";
 
 export function DeviceList() {
   const navigate = useNavigate();
@@ -34,6 +35,7 @@ export function DeviceList() {
 
   const [devices, setDevices] = useState<DeviceRecord[]>([]);
   const [isDevicesLoading, setIsDevicesLoading] = useState(true);
+  const [hasResolvedInitialDeviceLoad, setHasResolvedInitialDeviceLoad] = useState(false);
   const [listError, setListError] = useState("");
   const [isDeviceModalOpen, setIsDeviceModalOpen] = useState(false);
   const [editingDeviceId, setEditingDeviceId] = useState<string | null>(null);
@@ -85,6 +87,7 @@ export function DeviceList() {
         }
       } finally {
         if (active) {
+          setHasResolvedInitialDeviceLoad(true);
           setIsDevicesLoading(false);
         }
       }
@@ -220,6 +223,10 @@ export function DeviceList() {
     ? devices 
     : devices.filter(d => groups.find(g => g.id === activeTab)?.deviceIds.includes(d.id));
   const alarms = getVisibleDeviceAlarms(devices);
+  const statsSummary = getDeviceStatsSummary(devices, {
+    isPendingInitialLoad: !hasResolvedInitialDeviceLoad,
+    hasError: Boolean(listError),
+  });
 
   const handleDeleteAlarm = (e: React.MouseEvent, alarmId: string) => {
     e.stopPropagation();
@@ -269,8 +276,8 @@ export function DeviceList() {
           <div className="relative z-10">
             <p className="text-rose-100 text-sm font-medium mb-1 opacity-90">运行设备</p>
             <div className="flex items-end space-x-2">
-              <span className="text-3xl font-bold tracking-tight">{devices.filter(d => d.status === 'online').length}</span>
-              <span className="text-rose-100 text-sm mb-1 font-medium">/ {devices.length}</span>
+              <span className="text-3xl font-bold tracking-tight">{statsSummary.onlineCountLabel}</span>
+              <span className="text-rose-100 text-sm mb-1 font-medium">/ {statsSummary.totalCountLabel}</span>
             </div>
           </div>
           {/* Decorative mini chart / ring */}
