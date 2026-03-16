@@ -92,10 +92,15 @@ function verifyPassword(password, storedValue) {
   return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(derived, "hex"));
 }
 
+function getDeviceConfigName(row) {
+  return row.config_name || row.default_config_name || `${row.name || row.default_name}组态`;
+}
+
 function serializeDevice(row) {
   const connectionHistory = JSON.parse(row.connection_history_json || "[]");
   const alarms = JSON.parse(row.alarms_json || "[]");
   const configPayload = row.config_payload_json ? JSON.parse(row.config_payload_json) : null;
+  const configName = getDeviceConfigName(row);
   return {
     id: row.id,
     claimCode: row.claim_code,
@@ -117,13 +122,11 @@ function serializeDevice(row) {
     type: row.type,
     location: row.location,
     address: row.address,
-    config: row.config_name
-      ? {
-          id: "default",
-          name: row.config_name,
-          payload: configPayload,
-        }
-      : null,
+    config: {
+      id: "default",
+      name: configName,
+      payload: configPayload,
+    },
   };
 }
 
@@ -374,9 +377,6 @@ export async function createStore(config, options = {}) {
       const current = await this.getOwnedDevice(userId, deviceId);
       if (!current) {
         return { status: 404, error: "设备不存在" };
-      }
-      if (!current.config) {
-        return { status: 404, error: "当前设备无组态" };
       }
 
       const result = await client.query(

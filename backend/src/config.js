@@ -1,5 +1,6 @@
 function requireProductionSecret(name, value, fallback) {
-  if (process.env.NODE_ENV === "production" && (!value || value === fallback)) {
+  const allowDefaultPasswords = String(process.env.ALLOW_DEFAULT_PASSWORDS || "").toLowerCase() === "true";
+  if (process.env.NODE_ENV === "production" && !allowDefaultPasswords && (!value || value === fallback)) {
     throw new Error(`${name} must be changed before production startup`);
   }
   return value;

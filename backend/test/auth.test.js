@@ -207,7 +207,7 @@ test("updates only device name and address for the owner", async () => {
   assert.equal(updateConfig.body.config.name, "新的组态名");
 });
 
-test("returns null when the device has no config", async () => {
+test("returns placeholder config when the device has no designed payload", async () => {
   const app = await buildApp();
   const session = await loginAs(app, "user", "user");
 
@@ -217,13 +217,35 @@ test("returns null when the device has no config", async () => {
     .send({ claimCode: "MFH4LUWN", name: "无组态设备" });
 
   assert.equal(claimResponse.status, 201);
+  assert.deepEqual(claimResponse.body.device.config, {
+    id: "default",
+    name: "无组态设备组态",
+    payload: null,
+  });
 
   const configResponse = await request(app)
     .get(`/api/devices/${claimResponse.body.device.id}/config`)
     .set("Authorization", `Bearer ${session.token}`);
 
   assert.equal(configResponse.status, 200);
-  assert.equal(configResponse.body.config, null);
+
+  assert.deepEqual(configResponse.body.config, {
+    id: "default",
+    name: "无组态设备组态",
+    payload: null,
+  });
+
+  const updateConfigResponse = await request(app)
+    .patch(`/api/devices/${claimResponse.body.device.id}/config`)
+    .set("Authorization", `Bearer ${session.token}`)
+    .send({ name: "备用终端占位组态" });
+
+  assert.equal(updateConfigResponse.status, 200);
+  assert.deepEqual(updateConfigResponse.body.config, {
+    id: "default",
+    name: "备用终端占位组态",
+    payload: null,
+  });
 });
 
 test("updates profile and password with backend persistence", async () => {
