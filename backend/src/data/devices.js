@@ -113,7 +113,7 @@ export const seedDevices = [
     defaultAddress: "待分配地址",
     defaultConfigName: "备用组态界面",
     status: "offline",
-    lastActive: "-",
+    lastActive: null,
     lastSeenAt: null,
     createdAt: "2026-03-11T10:00:00+08:00",
     updatedAt: "2026-03-11T10:00:00+08:00",

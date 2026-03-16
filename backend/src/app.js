@@ -4,6 +4,45 @@ import { config } from "./config.js";
 import { seedDevices } from "./data/devices.js";
 import { createSeedUsers } from "./data/users.js";
 
+const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+export function formatShanghaiIso(date = new Date()) {
+  const adjusted = new Date(date.getTime() + SHANGHAI_OFFSET_MS);
+  return `${adjusted.toISOString().slice(0, 19)}+08:00`;
+}
+
+function normalizeOptionalTimestamp(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+
+  if (!trimmed || trimmed === "-") {
+    return null;
+  }
+
+  const parsed = new Date(trimmed);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+
+  return formatShanghaiIso(parsed);
+}
+
+function normalizeRequiredTimestamp(value) {
+  return normalizeOptionalTimestamp(value) ?? String(value || "");
+}
+
+export function resolveDeviceLastActive(device) {
+  return (
+    normalizeOptionalTimestamp(device.lastSeenAt)
+    ?? normalizeOptionalTimestamp(device.lastActive)
+    ?? normalizeOptionalTimestamp(device.updatedAt)
+  );
+}
+
 function serializeUser(user) {
   return {
     username: user.username,
@@ -22,31 +61,17 @@ function serializeDevice(device) {
     location: device.location,
     address: device.address,
     status: device.status,
-    lastActive: device.lastActive,
-    lastSeenAt: device.lastSeenAt,
-    createdAt: device.createdAt,
-    updatedAt: device.updatedAt,
-    boundAt: device.boundAt,
+    lastActive: resolveDeviceLastActive(device),
+    lastSeenAt: normalizeOptionalTimestamp(device.lastSeenAt),
+    createdAt: normalizeRequiredTimestamp(device.createdAt),
+    updatedAt: normalizeRequiredTimestamp(device.updatedAt),
+    boundAt: normalizeOptionalTimestamp(device.boundAt),
     config: device.config ? { ...device.config } : null,
   };
 }
 
 function nowIso() {
-  const now = new Date();
-  const timezoneOffset = -now.getTimezoneOffset();
-  const sign = timezoneOffset >= 0 ? "+" : "-";
-  const absoluteOffset = Math.abs(timezoneOffset);
-  const hours = String(Math.floor(absoluteOffset / 60)).padStart(2, "0");
-  const minutes = String(absoluteOffset % 60).padStart(2, "0");
-
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const date = String(now.getDate()).padStart(2, "0");
-  const hh = String(now.getHours()).padStart(2, "0");
-  const mm = String(now.getMinutes()).padStart(2, "0");
-  const ss = String(now.getSeconds()).padStart(2, "0");
-
-  return `${year}-${month}-${date}T${hh}:${mm}:${ss}${sign}${hours}:${minutes}`;
+  return formatShanghaiIso(new Date());
 }
 
 function buildDefaultConfig(name) {
@@ -63,6 +88,8 @@ function resetDevice(device) {
   device.type = device.defaultType;
   device.location = device.defaultLocation;
   device.address = device.defaultAddress;
+  device.lastActive = null;
+  device.lastSeenAt = null;
   device.config = buildDefaultConfig(device.defaultConfigName);
   device.updatedAt = timestamp;
   device.boundAt = null;
