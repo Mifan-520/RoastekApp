@@ -2,6 +2,7 @@ import { useNavigate, useParams } from "react-router";
 import { ChevronLeft, Activity, Droplet, FileText, Power, Zap, Settings, AlertTriangle, AlertCircle, Trash2, Clock, Smartphone, SignalMedium, SignalLow, LayoutTemplate } from "lucide-react";
 import { useState, useEffect } from "react";
 import { getDevice, getDeviceConfig, deleteAlarm, type DeviceRecord, type DeviceConfigRecord } from "../services/devices";
+import { formatAbsoluteTime } from "../utils/date";
 
 export function DeviceOverview() {
   const { id } = useParams();
@@ -140,7 +141,7 @@ export function DeviceOverview() {
                     </div>
                 </div>
                 <div className="text-right">
-                    <p className="text-xs font-bold text-slate-600">{record.time}</p>
+                    <p className="text-xs font-bold text-slate-600">{formatAbsoluteTime(record.time)}</p>
                 </div>
               </div>
             ))}
@@ -164,7 +165,7 @@ export function DeviceOverview() {
                   <div className="flex items-start justify-between">
                     <div>
                       <p className="text-sm font-bold text-slate-900">{alarm.message}</p>
-                      <p className="text-xs text-slate-500 mt-1 font-medium">{alarm.time}</p>
+                      <p className="text-xs text-slate-500 mt-1 font-medium">{formatAbsoluteTime(alarm.time)}</p>
                     </div>
                     <button 
                       onClick={() => handleDeleteAlarm(alarm.id)}

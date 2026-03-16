@@ -3,7 +3,8 @@ import { Settings, Server, Plus, X, Check, ArchiveX, Edit2, AlertTriangle, Info,
 import { useState, useEffect } from "react";
 import { getSession } from "../services/auth";
 import { claimDevice, deleteDevice, getDevices, updateDevice, type DeviceRecord } from "../services/devices";
-import { getVisibleDeviceAlarms } from "../utils/device-alarms.js";
+import { formatAbsoluteTime } from "../utils/date";
+import { getVisibleDeviceAlarms } from "../utils/device-alarms";
 import { getDeviceStatsSummary } from "../utils/device-stats.js";
 
 export function DeviceList() {
@@ -437,7 +438,7 @@ export function DeviceList() {
               
               <div className="flex items-center justify-end pt-3 border-t border-slate-50/50 mt-2">
                 <div className="text-xs text-slate-400 font-medium">
-                  活跃于: {device.lastActive}
+                  活跃于: {formatAbsoluteTime(device.lastActive)}
                 </div>
               </div>
             </div>
@@ -723,7 +724,7 @@ export function DeviceList() {
                         <div className="flex items-center space-x-2 text-xs text-slate-500 font-medium">
                           <span>{alarm.deviceName || alarm.deviceId}</span>
                           <span className="w-1 h-1 rounded-full bg-slate-300" />
-                          <span>{alarm.time}</span>
+                          <span>{formatAbsoluteTime(alarm.time)}</span>
                         </div>
                     </div>
                   </div>
