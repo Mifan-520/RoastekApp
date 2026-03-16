@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "react-router";
-import { ChevronLeft, Fan, Power } from "lucide-react";
+import { ChevronLeft, Fan, Power, LayoutTemplate } from "lucide-react";
 import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import { getDevice, getDeviceConfig, type DeviceRecord, type DeviceConfigRecord } from "../services/devices";
@@ -71,7 +71,50 @@ export function DeviceUI() {
           </button>
           <h1 className="text-[17px] font-bold tracking-tight text-white flex-1">组态界面</h1>
         </div>
-        <div className="flex-1 flex items-center justify-center p-6 text-slate-400 font-medium">无组态</div>
+        <div className="flex-1 flex items-center justify-center p-6 text-slate-400 font-medium">加载失败，请重试</div>
+      </div>
+    );
+  }
+
+  const isDesigned = !!config.payload;
+
+  if (!isDesigned) {
+    return (
+      <div className="flex flex-col min-h-screen bg-[#0d0708] text-slate-100 relative overflow-hidden">
+        {/* Abstract Background Elements */}
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-rose-950/20 rounded-full blur-[100px] pointer-events-none" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-rose-900/10 rounded-full blur-[100px] pointer-events-none" />
+        
+        {/* Navigation Bar */}
+        <div className="absolute top-0 left-0 right-0 flex items-center p-6 bg-[#0d0708]/80 backdrop-blur-xl z-50 border-b border-rose-900/30">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2 mr-2 rounded-full hover:bg-rose-950/50 transition-colors text-rose-100">
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <h1 className="text-[17px] font-bold tracking-tight text-white flex-1">{config.name}</h1>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 flex flex-col items-center justify-center p-6 mt-16 text-center relative z-10">
+            {/* Logo / Placeholder icon */}
+            <div className="w-32 h-32 mb-8 relative flex items-center justify-center">
+              <div className="absolute inset-0 bg-gradient-to-tr from-rose-900/20 to-rose-800/20 rounded-3xl rotate-3 scale-105" />
+              <div className="absolute inset-0 bg-[#1a0f12] rounded-3xl border border-rose-900/40 flex items-center justify-center shadow-xl">
+                 <div className="w-16 h-16 bg-gradient-to-br from-rose-800 to-rose-950 rounded-2xl flex items-center justify-center shadow-[0_0_20px_rgba(159,18,57,0.3)] border border-rose-700/50">
+                    <img src="/device-center.png" alt="logo" className="w-10 h-10 object-contain opacity-90 drop-shadow-md" onError={(e) => { e.currentTarget.style.display='none'; e.currentTarget.nextElementSibling?.classList.remove('hidden'); }} />
+                    <LayoutTemplate className="w-8 h-8 text-rose-200 hidden" />
+                 </div>
+              </div>
+            </div>
+            
+            <h2 className="text-xl font-bold text-white mb-3 tracking-tight">暂无组态画面</h2>
+            <p className="text-rose-200/50 text-[15px] font-medium max-w-[260px] leading-relaxed">
+              该设备尚未设计或绑定组态界面，请在工程后台进行配置。
+            </p>
+            
+            <button className="mt-10 px-8 py-3.5 bg-rose-900/30 hover:bg-rose-800/50 border border-rose-800/40 rounded-2xl text-rose-100 font-bold transition-all shadow-[0_0_20px_rgba(159,18,57,0.15)] backdrop-blur-md active:scale-95">
+              联系技术支持
+            </button>
+        </div>
       </div>
     );
   }
