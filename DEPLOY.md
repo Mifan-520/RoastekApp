@@ -1,5 +1,7 @@
 # Server Deployment Guide
 
+If a server-side AI is doing the deployment, read `SERVER_AI_DEPLOYMENT.md` first and then use this file for the longer checklist.
+
 ## What to upload to GitHub
 
 Upload the whole project except ignored files. The root `.gitignore` already excludes `node_modules`, build outputs, logs, and local `.env` files.
@@ -21,6 +23,7 @@ You can either:
 
 ```bash
 cp .env.example .env
+edit .env and replace the admin password plus public origin
 bash scripts/server-up.sh
 ```
 
@@ -28,11 +31,15 @@ Open:
 
 - `http://server-ip:8088`
 
+For a real server domain, set `FRONTEND_ORIGIN` in `.env` to the exact public origin users will open, for example `https://app.your-company.com`.
+
 ## Update after pushing to GitHub
 
 ```bash
 bash scripts/server-update.sh
 ```
+
+`server-update.sh` now uses `git pull --ff-only` so deployment stops instead of creating an unexpected merge commit on the server.
 
 ## Do you still need Nginx?
 
@@ -64,3 +71,8 @@ Add another Nginx on the Linux server when you need:
 If you use host-level Nginx, do not expose `8088` directly to the public internet. Let external traffic enter through `80/443` only.
 
 An example host Nginx config is provided in `deploy/nginx/reverse-proxy.example.conf`.
+
+## Current stack note
+
+- The repository-root stack is the real deployable stack.
+- `frontend/docker-compose.yml` and its related deployment docs were old nested-repo leftovers and should not be used anymore.

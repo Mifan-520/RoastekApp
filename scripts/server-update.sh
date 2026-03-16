@@ -6,7 +6,7 @@ PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 cd "${PROJECT_ROOT}"
 
-git pull
+git pull --ff-only
 
 if [ -f .env ]; then
   set -a
