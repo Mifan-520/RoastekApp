@@ -9,7 +9,7 @@ import {
   type DeviceConfigRecord,
   type DeviceUiControlItem,
 } from "../services/devices";
-import { getHMIComponent } from "../hmi";
+import { getHMIComponent } from "../../../HMI";
 
 const STYLED_COLORS = ["#be123c", "#f43f5e", "#ffe4e6"];
 

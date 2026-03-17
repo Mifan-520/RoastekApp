@@ -3,7 +3,7 @@
  * 特点：电源控制 + 设备在线状态表
  */
 import {
-  Power, SprayCan, Filter, Layers, Flame, ArrowUp, Move, Wifi, WifiOff, PlayCircle
+  Power, SprayCan, Filter, Layers, Flame, ArrowUp, Move, Wifi
 } from "lucide-react";
 
 interface Equipment {
