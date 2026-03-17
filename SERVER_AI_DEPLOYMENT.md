@@ -77,4 +77,5 @@ Then verify manually:
 ## Current architecture note
 
 - The root stack currently runs one `backend` container and one `frontend` container.
-- The backend is still fileless/in-memory and is suitable for internal testing or lightweight rollout, not durable production persistence.
+- The backend persists data to `/app/data/devices.json` inside the container, backed by a Docker volume `roastek-data`.
+- Data survives container restarts and rebuilds. Suitable for internal testing and lightweight production use.
