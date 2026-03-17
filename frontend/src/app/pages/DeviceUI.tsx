@@ -1,16 +1,44 @@
 import { useNavigate, useParams } from "react-router";
-import { ChevronLeft, Fan, Power, LayoutTemplate } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ChevronLeft, Fan, Gauge, LayoutTemplate, Power } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
-import { getDevice, getDeviceConfig, type DeviceRecord, type DeviceConfigRecord } from "../services/devices";
+import {
+  getDevice,
+  getDeviceConfig,
+  type DeviceRecord,
+  type DeviceConfigRecord,
+  type DeviceUiControlItem,
+} from "../services/devices";
 
 const STYLED_COLORS = ["#be123c", "#f43f5e", "#ffe4e6"];
+
+const toneClasses = {
+  rose: "border-rose-800/40 bg-rose-900/15 text-rose-100",
+  emerald: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
+  amber: "border-amber-500/30 bg-amber-500/10 text-amber-100",
+} as const;
+
+function getToneClass(tone?: "rose" | "emerald" | "amber") {
+  return tone ? toneClasses[tone] : "border-rose-900/20 bg-[#1a0f12] text-slate-100";
+}
+
+function ControlIcon({ icon, active }: { icon?: DeviceUiControlItem["icon"]; active: boolean }) {
+  const className = `w-5 h-5 ${icon === "fan" && active ? "animate-spin" : ""}`;
+
+  if (icon === "fan") {
+    return <Fan className={className} style={{ animationDuration: "3s" }} />;
+  }
+
+  if (icon === "gauge") {
+    return <Gauge className={className} />;
+  }
+
+  return <Power className={className} />;
+}
 
 export function DeviceUI() {
   const { id } = useParams();
   const navigate = useNavigate();
-
-  const [switches, setSwitches] = useState({ s1: true, s2: false });
 
   const [device, setDevice] = useState<DeviceRecord | null>(null);
   const [config, setConfig] = useState<DeviceConfigRecord | null>(null);
@@ -52,12 +80,6 @@ export function DeviceUI() {
     };
   }, [id]);
 
-  useEffect(() => {
-    if (config?.payload?.switches) {
-      setSwitches(config.payload.switches);
-    }
-  }, [config]);
-
   if (isLoading) {
     return <div className="flex flex-col min-h-full items-center justify-center p-6 bg-[#0d0708] text-slate-100"><h2 className="text-xl font-bold">加载中...</h2></div>;
   }
@@ -77,6 +99,10 @@ export function DeviceUI() {
   }
 
   const isDesigned = !!config.payload;
+  const chartData = useMemo(
+    () => (config.payload?.chart.data ?? []).map((item) => ({ ...item, name: item.label })),
+    [config.payload?.chart.data],
+  );
 
   if (!isDesigned) {
     return (
@@ -119,8 +145,6 @@ export function DeviceUI() {
     );
   }
 
-  const chartData = config.payload?.chartData || [];
-
   return (
     <div className="flex flex-col min-h-full bg-[#0d0708] text-slate-100 relative">
       {/* Header */}
@@ -132,10 +156,21 @@ export function DeviceUI() {
       </div>
 
       <div className="p-6 pt-4 space-y-6 flex-1">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          {config.payload?.summary.map((item) => (
+            <div key={item.id} className={`rounded-3xl border p-4 ${getToneClass(item.tone)}`}>
+              <p className="text-xs font-medium tracking-[0.2em] text-white/55">{item.label}</p>
+              <div className="mt-3 flex items-end gap-2">
+                <span className="text-3xl font-black tracking-tight text-white">{item.value}</span>
+                {item.unit ? <span className="pb-1 text-sm font-semibold text-white/65">{item.unit}</span> : null}
+              </div>
+            </div>
+          ))}
+        </div>
         
         {/* Statistics Chart */}
         <div className="bg-[#1a0f12]/50 rounded-3xl p-5 border border-rose-900/20">
-          <h3 className="text-[15px] font-bold tracking-tight text-white mb-4 px-1">能耗分布统计</h3>
+          <h3 className="text-[15px] font-bold tracking-tight text-white mb-4 px-1">{config.payload?.chart.title ?? "能耗分布统计"}</h3>
           <div className="h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -150,7 +185,7 @@ export function DeviceUI() {
                   stroke="none"
                 >
                   {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={STYLED_COLORS[index % STYLED_COLORS.length]} />
+                    <Cell key={`cell-${index}`} fill={entry.color ?? STYLED_COLORS[index % STYLED_COLORS.length]} />
                   ))}
                 </Pie>
                 <Tooltip 
@@ -166,40 +201,21 @@ export function DeviceUI() {
         {/* Control Switches */}
         <div>
           <h3 className="text-[15px] font-bold tracking-tight text-white mb-4 px-1">设备控制</h3>
-          <div className="grid grid-cols-2 gap-4">
-            {/* Switch 1 */}
-            <div className={`p-4 rounded-3xl border transition-all duration-300 ${switches.s1 ? 'bg-rose-900/20 border-rose-800/40' : 'bg-[#1a0f12] border-rose-900/20'}`}>
-              <div className="flex justify-between items-start mb-4">
-                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${switches.s1 ? 'bg-rose-800 text-white shadow-[0_0_15px_rgba(159,18,57,0.4)]' : 'bg-black/50 text-rose-200/40'}`}>
-                  <Fan className={`w-5 h-5 ${switches.s1 ? 'animate-spin' : ''}`} style={{ animationDuration: '3s' }} />
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            {config.payload?.controls.map((control) => (
+              <div key={control.id} className={`rounded-3xl border p-4 transition-all duration-300 ${getToneClass(control.tone)}`}>
+                <div className="mb-4 flex items-start justify-between gap-4">
+                  <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${control.active ? "bg-white/15 text-white shadow-[0_0_15px_rgba(255,255,255,0.08)]" : "bg-black/30 text-white/45"}`}>
+                    <ControlIcon icon={control.icon} active={control.active} />
+                  </div>
+                  <span className={`rounded-full px-2.5 py-1 text-[11px] font-bold tracking-[0.18em] ${control.active ? "bg-white/15 text-white" : "bg-black/25 text-white/55"}`}>
+                    {control.active ? "ON" : "OFF"}
+                  </span>
                 </div>
-                <button 
-                  onClick={() => setSwitches(s => ({ ...s, s1: !s.s1 }))}
-                  className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 ${switches.s1 ? 'bg-rose-700' : 'bg-rose-950'}`}
-                >
-                  <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-300 ${switches.s1 ? 'translate-x-6' : 'translate-x-0'}`} />
-                </button>
+                <p className="text-sm font-bold text-white mb-0.5">{control.label}</p>
+                <p className="text-xs font-medium text-white/60">{control.description}</p>
               </div>
-              <p className="text-sm font-bold text-white mb-0.5">排风机 1</p>
-              <p className="text-xs font-medium text-rose-200/50">{switches.s1 ? '运行中 (1.2kW)' : '已停止'}</p>
-            </div>
-
-            {/* Switch 2 */}
-            <div className={`p-4 rounded-3xl border transition-all duration-300 ${switches.s2 ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-[#1a0f12] border-rose-900/20'}`}>
-              <div className="flex justify-between items-start mb-4">
-                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${switches.s2 ? 'bg-emerald-600 text-white shadow-[0_0_15px_rgba(5,150,105,0.4)]' : 'bg-black/50 text-rose-200/40'}`}>
-                  <Power className="w-5 h-5" />
-                </div>
-                <button 
-                  onClick={() => setSwitches(s => ({ ...s, s2: !s.s2 }))}
-                  className={`w-12 h-6 rounded-full p-1 transition-colors duration-300 ${switches.s2 ? 'bg-emerald-600' : 'bg-rose-950'}`}
-                >
-                  <div className={`w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-300 ${switches.s2 ? 'translate-x-6' : 'translate-x-0'}`} />
-                </button>
-              </div>
-              <p className="text-sm font-bold text-white mb-0.5">主水泵</p>
-              <p className="text-xs font-medium text-rose-200/50">{switches.s2 ? '运行中 (2.5kW)' : '已停止'}</p>
-            </div>
+            ))}
           </div>
         </div>
 

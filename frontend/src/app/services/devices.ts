@@ -3,10 +3,39 @@ import { authRequest } from "./auth";
 export interface DeviceConfigRecord {
   id: string;
   name: string;
-  payload?: {
-    chartData: Array<{ name: string; value: number }>;
-    switches: { s1: boolean; s2: boolean };
-  } | null;
+  payload?: DeviceUiPayload | null;
+}
+
+export interface DeviceUiSummaryItem {
+  id: string;
+  label: string;
+  value: string;
+  unit?: string;
+  tone?: "rose" | "emerald" | "amber";
+}
+
+export interface DeviceUiChartItem {
+  label: string;
+  value: number;
+  color?: string;
+}
+
+export interface DeviceUiControlItem {
+  id: string;
+  label: string;
+  description: string;
+  icon?: "fan" | "power" | "gauge";
+  active: boolean;
+  tone?: "rose" | "emerald" | "amber";
+}
+
+export interface DeviceUiPayload {
+  summary: DeviceUiSummaryItem[];
+  chart: {
+    title: string;
+    data: DeviceUiChartItem[];
+  };
+  controls: DeviceUiControlItem[];
 }
 
 export interface DeviceAlarmRecord {
