@@ -40,9 +40,16 @@ export function DeviceUI() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [device, setDevice] = useState<DeviceRecord | null>(null);
+const [device, setDevice] = useState<DeviceRecord | null>(null);
   const [config, setConfig] = useState<DeviceConfigRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // useMemo 必须在所有条件返回之前调用，符合 React hooks 规则
+  const isDesigned = !!config?.payload;
+  const chartData = useMemo(
+    () => (config?.payload?.chart?.data ?? []).map((item) => ({ ...item, name: item.label })),
+    [config?.payload?.chart?.data],
+  );
 
   useEffect(() => {
     let active = true;
@@ -80,7 +87,7 @@ export function DeviceUI() {
     };
   }, [id]);
 
-  if (isLoading) {
+if (isLoading) {
     return <div className="flex flex-col min-h-full items-center justify-center p-6 bg-[#0d0708] text-slate-100"><h2 className="text-xl font-bold">加载中...</h2></div>;
   }
 
@@ -96,13 +103,7 @@ export function DeviceUI() {
         <div className="flex-1 flex items-center justify-center p-6 text-slate-400 font-medium">加载失败，请重试</div>
       </div>
     );
-  }
-
-  const isDesigned = !!config.payload;
-  const chartData = useMemo(
-    () => (config.payload?.chart.data ?? []).map((item) => ({ ...item, name: item.label })),
-    [config.payload?.chart.data],
-  );
+}
 
   if (!isDesigned) {
     return (
