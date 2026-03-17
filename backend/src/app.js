@@ -74,13 +74,6 @@ function nowIso() {
   return formatShanghaiIso(new Date());
 }
 
-function buildDefaultConfig(name) {
-  return {
-    id: "default",
-    name: name || "默认组态",
-  };
-}
-
 function resetDevice(device) {
   const timestamp = nowIso();
   device.ownerId = null;
@@ -90,7 +83,7 @@ function resetDevice(device) {
   device.address = device.defaultAddress;
   device.lastActive = null;
   device.lastSeenAt = null;
-  device.config = buildDefaultConfig(device.defaultConfigName);
+  device.config = null;
   device.updatedAt = timestamp;
   device.boundAt = null;
 }
@@ -245,14 +238,16 @@ export function createApp() {
     const location = String(req.body?.location || "").trim();
     const address = String(req.body?.address || "").trim();
 
-    if (!name || !location) {
+    const nextLocation = location || device.location;
+
+    if (!name || !nextLocation) {
       res.status(400).json({ message: "设备名称和位置不能为空" });
       return;
     }
 
     device.name = name;
     if (type) device.type = type;
-    device.location = location;
+    device.location = nextLocation;
     device.address = address || device.address;
     device.updatedAt = nowIso();
 

@@ -396,8 +396,8 @@ export function DeviceList() {
               {/* Highlight bar for online status */}
               <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${device.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
 
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center space-x-4">
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div className="flex items-center space-x-4 min-w-0 flex-1">
                   {/* Unified Device Icon */}
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors relative ${
                     device.status === 'online' ? 'bg-emerald-50' : 'bg-slate-50'
@@ -410,14 +410,14 @@ export function DeviceList() {
                     )}
                     <Server className={`w-6 h-6 ${device.status === 'online' ? 'text-emerald-600' : 'text-slate-400'}`} />
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <h4 className={`font-bold text-base ${device.status === 'online' ? 'text-slate-900' : 'text-slate-500'}`}>{device.name}</h4>
                     <div className="flex flex-col mt-1 space-y-0.5">
                       <p className="text-xs text-slate-500 font-medium flex items-center"><span className="w-10 flex-shrink-0 text-slate-400">位置：</span><span className="truncate">{device.address || device.location}</span></p>
                     </div>
                   </div>
                 </div>
-                <div className="flex flex-col items-end space-y-2">
+                <div className="flex flex-col items-end space-y-2 flex-shrink-0">
                   <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide ${
                     device.status === 'online' 
                       ? 'bg-emerald-100 text-emerald-700 border border-emerald-200/50' 
