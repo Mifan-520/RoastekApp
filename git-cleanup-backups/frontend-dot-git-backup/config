@@ -1,0 +1,25 @@
+[core]
+	repositoryformatversion = 0
+	filemode = false
+	bare = false
+	logallrefupdates = true
+	symlinks = false
+	ignorecase = true
+[remote "origin"]
+	url = https://github.com/Mifan-520/RoastekApp.git
+	fetch = +refs/heads/main:refs/remotes/origin/main
+[branch "main"]
+	remote = origin
+	merge = refs/heads/main
+	vscode-merge-base = origin/main
+[user]
+	email = mifan@example.com
+	name = Mifan
+[branch "fix/device-center-initial-stats"]
+	vscode-merge-base = origin/main
+	remote = origin
+	merge = refs/heads/fix/device-center-initial-stats
+[branch "time-sync-frontend-20260316"]
+	vscode-merge-base = origin/main
+	remote = origin
+	merge = refs/heads/time-sync-frontend-20260316

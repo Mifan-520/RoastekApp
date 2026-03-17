@@ -35,7 +35,7 @@ test("claim response returns a canonical lastActive timestamp", async () => {
   const claimResponse = await request(app)
     .post("/api/devices/claim")
     .set("Authorization", `Bearer ${session.token}`)
-    .send({ claimCode: "Z8C6V4BN", name: "无历史活跃时间设备" });
+    .send({ claimCode: "V6B3L8Q4", name: "无历史活跃时间设备" });
 
   assert.equal(claimResponse.status, 201);
   assert.match(claimResponse.body.device.updatedAt, /\+08:00$/);
@@ -47,7 +47,7 @@ test("re-claim after delete does not reuse the previous owner's last active time
   const adminSession = await loginAs(app, "admin", "admin");
 
   const deleteResponse = await request(app)
-    .delete("/api/devices/dev-001")
+    .delete("/api/devices/dev-fz-001")
     .set("Authorization", `Bearer ${adminSession.token}`);
 
   assert.equal(deleteResponse.status, 204);
@@ -56,7 +56,7 @@ test("re-claim after delete does not reuse the previous owner's last active time
   const claimResponse = await request(app)
     .post("/api/devices/claim")
     .set("Authorization", `Bearer ${userSession.token}`)
-    .send({ claimCode: "A4D7K9P2", name: "重新认领设备" });
+    .send({ claimCode: "H7K2M4Q9", name: "重新认领设备" });
 
   assert.equal(claimResponse.status, 201);
   assert.equal(claimResponse.body.device.lastSeenAt, null);

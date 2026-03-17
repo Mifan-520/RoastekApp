@@ -423,7 +423,7 @@ export function DeviceList() {
                       ? 'bg-emerald-100 text-emerald-700 border border-emerald-200/50' 
                       : 'bg-slate-100 text-slate-600 border border-slate-200/50'
                   }`}>
-                    {device.status === 'online' ? '在线运行' : '离线休眠'}
+                    {device.status === 'online' ? '在线' : '离线'}
                   </span>
                   <div className="flex space-x-1">
                     <button onClick={(e) => { e.stopPropagation(); openEditDeviceModal(device); }} className="p-1.5 bg-slate-50 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors">

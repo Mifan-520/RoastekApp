@@ -1,0 +1,3 @@
+0000000000000000000000000000000000000000 6bd22197ad1aa10ec4e2d0ccd39c9340577ad882 Mifan <mifan@example.com> 1773648960 +0800	branch: Created from HEAD
+6bd22197ad1aa10ec4e2d0ccd39c9340577ad882 b15bd2582f0168a709e08ee303f6e5437999547f Mifan <mifan@example.com> 1773648985 +0800	commit: Align frontend device utility modules
+b15bd2582f0168a709e08ee303f6e5437999547f d80079d152a541a8cdd01cf1c20f7c1e66c4af77 Mifan <mifan@example.com> 1773649009 +0800	commit: Add absolute time formatting to frontend device views

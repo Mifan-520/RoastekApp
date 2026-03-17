@@ -3,6 +3,7 @@ import express from "express";
 import { config } from "./config.js";
 import { seedDevices } from "./data/devices.js";
 import { createSeedUsers } from "./data/users.js";
+import { loadDevices, saveDevices } from "./storage.js";
 
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
 
@@ -66,6 +67,8 @@ function serializeDevice(device) {
     createdAt: normalizeRequiredTimestamp(device.createdAt),
     updatedAt: normalizeRequiredTimestamp(device.updatedAt),
     boundAt: normalizeOptionalTimestamp(device.boundAt),
+    connectionHistory: device.connectionHistory || [],
+    alarms: device.alarms || [],
     config: device.config ? { ...device.config } : null,
   };
 }
@@ -97,7 +100,7 @@ function normalizeClaimCode(value) {
 export function createApp() {
   const app = express();
   const users = createSeedUsers(config);
-  const devices = structuredClone(seedDevices);
+  const devices = loadDevices();
   const tokenToUserId = new Map(users.map((user) => [`token-${user.username}`, user.id]));
 
   function getUserByToken(token) {
@@ -212,6 +215,7 @@ export function createApp() {
     device.address = address || device.defaultAddress;
     device.boundAt = nowIso();
     device.updatedAt = device.boundAt;
+    saveDevices(devices);
 
     res.status(201).json({ device: serializeDevice(device) });
   });
@@ -245,11 +249,12 @@ export function createApp() {
       return;
     }
 
-    device.name = name;
+device.name = name;
     if (type) device.type = type;
     device.location = nextLocation;
     device.address = address || device.address;
     device.updatedAt = nowIso();
+    saveDevices(devices);
 
     res.json({ device: serializeDevice(device) });
   });
@@ -262,6 +267,7 @@ export function createApp() {
     }
 
     resetDevice(device);
+    saveDevices(devices);
     res.status(204).send();
   });
 
@@ -296,6 +302,7 @@ export function createApp() {
 
     device.config.name = name;
     device.updatedAt = nowIso();
+    saveDevices(devices);
     res.json({ config: { ...device.config } });
   });
 

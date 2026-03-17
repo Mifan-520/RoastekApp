@@ -5,6 +5,9 @@ frontend/node_modules/
 dist/
 frontend/dist/
 
+# 持久化数据
+backend/data/
+
 *.log
 frontend/vite-dev.log
 backend/backend-dev.log

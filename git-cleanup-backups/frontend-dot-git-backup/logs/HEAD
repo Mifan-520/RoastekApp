@@ -1,0 +1,36 @@
+0000000000000000000000000000000000000000 a6748f83e9c91587582efd2f1467cf2003f98a6f unknown <Mifan@mifan.(none)> 1773287251 +0800	clone: from https://github.com/Mifan-520/RoastekApp.git
+a6748f83e9c91587582efd2f1467cf2003f98a6f bf1a707e17990f81bfce31c7151fa2fb88e089e3 Mifan <mifan@example.com> 1773304410 +0800	commit: Add backend device binding logic
+bf1a707e17990f81bfce31c7151fa2fb88e089e3 f3b924b9410e0adce8ca6ea13cae5902f73598d9 Mifan <mifan@example.com> 1773304434 +0800	commit: Add backend runtime files
+f3b924b9410e0adce8ca6ea13cae5902f73598d9 94c1f9ff39f8c809fb2c84514f308a87e5ae8998 Mifan <mifan@example.com> 1773304434 +0800	commit: Add backend container files
+94c1f9ff39f8c809fb2c84514f308a87e5ae8998 6b41bac5e850e2655324348333c4522eb17fd048 Mifan <mifan@example.com> 1773304434 +0800	commit: Add frontend service wiring
+6b41bac5e850e2655324348333c4522eb17fd048 8d89a6d3cfafa9f406270939eae270595de42c79 Mifan <mifan@example.com> 1773304435 +0800	commit: Sync current frontend application state
+8d89a6d3cfafa9f406270939eae270595de42c79 0b0906ecdb3ff47b59699b4078aa8e76b871ffde Mifan <mifan@example.com> 1773304435 +0800	commit: Sync current device pages
+0b0906ecdb3ff47b59699b4078aa8e76b871ffde 8f54cb6ba8849506da1b2d6bd3f3061d0cac9d54 Mifan <mifan@example.com> 1773304435 +0800	commit: Add repo-level deployment files
+8f54cb6ba8849506da1b2d6bd3f3061d0cac9d54 eca9b5b65bd347c92fb96dd2cb8aed2ddb0c03bb Mifan <mifan@example.com> 1773304435 +0800	commit: Add deployment docs and scripts
+eca9b5b65bd347c92fb96dd2cb8aed2ddb0c03bb b27ddceb8ff485e0efb87851ee92dbdd2576ab69 Mifan <mifan@example.com> 1773304474 +0800	commit: Add backend lockfile
+b27ddceb8ff485e0efb87851ee92dbdd2576ab69 8ecef8fed89dfa7982bd8b3d54f400fb8abb934f Mifan <mifan@example.com> 1773305518 +0800	commit: Align backend address contract
+8ecef8fed89dfa7982bd8b3d54f400fb8abb934f ed137ea472d294fbbab0e81ccc18cef612bde452 Mifan <mifan@example.com> 1773306417 +0800	commit: Update backend device edit contract
+ed137ea472d294fbbab0e81ccc18cef612bde452 42ea395b63849e800087a4f1cec5ac70939e98c0 Mifan <mifan@example.com> 1773306418 +0800	commit: Remove location field from device edit form
+42ea395b63849e800087a4f1cec5ac70939e98c0 2541aaf727cd5c21c8f176fb0724e1b2911d8b85 Mifan <mifan@example.com> 1773375312 +0800	commit: Add backend persistence store dependencies
+2541aaf727cd5c21c8f176fb0724e1b2911d8b85 14ddfdae210e78b9614048d6ba3f07cf4c6d005d Mifan <mifan@example.com> 1773375312 +0800	commit: Update backend auth and runtime configuration
+14ddfdae210e78b9614048d6ba3f07cf4c6d005d fccb14e03fbafed10b558d0ea35dabc9a6c16df3 Mifan <mifan@example.com> 1773375312 +0800	commit: Persist seeded device data and backend tests
+fccb14e03fbafed10b558d0ea35dabc9a6c16df3 0d702473783d34641ad74c380465608e17a03819 Mifan <mifan@example.com> 1773375313 +0800	commit: Secure compose environment for PostgreSQL deployment
+0d702473783d34641ad74c380465608e17a03819 6e3505f4bdd7e6f3c9fa4042f145fecaaaaef7b1 Mifan <mifan@example.com> 1773375313 +0800	commit: Update deployment scripts and docs
+6e3505f4bdd7e6f3c9fa4042f145fecaaaaef7b1 5298346dd77a3e3983cff4e24ef49e47957b0556 Mifan <mifan@example.com> 1773375313 +0800	commit: Wire settings page to real auth APIs
+5298346dd77a3e3983cff4e24ef49e47957b0556 16a6378bde2a94b652d3bfaaefdfe63f7045efad Mifan <mifan@example.com> 1773375313 +0800	commit: Use backend data in device detail and config pages
+16a6378bde2a94b652d3bfaaefdfe63f7045efad 5c50cf83d5a7483d04a46d4fe597540e61cdec51 Mifan <mifan@example.com> 1773384776 +0800	commit: add: 环境变量模板 - 测试环境和生产环境
+5c50cf83d5a7483d04a46d4fe597540e61cdec51 5e012218aa65d768b1f061733b9cd33fe83b3d0c Mifan <mifan@example.com> 1773386295 +0800	commit: fix: 设备告警删除功能 - 后端接口和前端绑定
+5e012218aa65d768b1f061733b9cd33fe83b3d0c 83e971f18ad4037b144d5ea13a3cc0ce53162887 Mifan <mifan@example.com> 1773393068 +0800	commit: fix: reseed unbound devices with claim codes and default addresses
+83e971f18ad4037b144d5ea13a3cc0ce53162887 3980f9007088469c51f9e1742b80328dd3b2779e Mifan <mifan@example.com> 1773393084 +0800	commit: test: align backend device tests with unbound seed flow
+3980f9007088469c51f9e1742b80328dd3b2779e 9cbffbb4c713713c2b83caba8af6138c40232d2b Mifan <mifan@example.com> 1773393098 +0800	commit: fix: show live claimed-device alarms in device center
+9cbffbb4c713713c2b83caba8af6138c40232d2b 9cbffbb4c713713c2b83caba8af6138c40232d2b Mifan <mifan@example.com> 1773631917 +0800	checkout: moving from main to fix/device-center-initial-stats
+9cbffbb4c713713c2b83caba8af6138c40232d2b acc9b19f6dddc7a4897d43913c43ecd33184ff9b Mifan <mifan@example.com> 1773632483 +0800	commit: Add device stats placeholder utility
+acc9b19f6dddc7a4897d43913c43ecd33184ff9b 4ffd205cdaa2a254b4ae275a789dd188b90666d5 Mifan <mifan@example.com> 1773632501 +0800	commit: Update device center stats loading state
+4ffd205cdaa2a254b4ae275a789dd188b90666d5 6432ad676f8dc26eb0c2c92e7cacf8846cd0ed03 Mifan <mifan@example.com> 1773632628 +0800	commit: Update deployment docs and env defaults
+6432ad676f8dc26eb0c2c92e7cacf8846cd0ed03 2491343a6ce8746c1a2bedb0ca91fcf01c1086c0 Mifan <mifan@example.com> 1773632659 +0800	commit: Clarify AI deployment and device stats guidelines
+2491343a6ce8746c1a2bedb0ca91fcf01c1086c0 5faa03ba767ac953e0df400b655426a0909764ee Mifan <mifan@example.com> 1773642840 +0800	commit: feat: 实现组态占位功能
+5faa03ba767ac953e0df400b655426a0909764ee 9cbffbb4c713713c2b83caba8af6138c40232d2b Mifan <mifan@example.com> 1773644766 +0800	checkout: moving from fix/device-center-initial-stats to main
+9cbffbb4c713713c2b83caba8af6138c40232d2b 6bd22197ad1aa10ec4e2d0ccd39c9340577ad882 Mifan <mifan@example.com> 1773644768 +0800	pull origin main: Fast-forward
+6bd22197ad1aa10ec4e2d0ccd39c9340577ad882 6bd22197ad1aa10ec4e2d0ccd39c9340577ad882 Mifan <mifan@example.com> 1773648960 +0800	checkout: moving from main to time-sync-frontend-20260316
+6bd22197ad1aa10ec4e2d0ccd39c9340577ad882 b15bd2582f0168a709e08ee303f6e5437999547f Mifan <mifan@example.com> 1773648985 +0800	commit: Align frontend device utility modules
+b15bd2582f0168a709e08ee303f6e5437999547f d80079d152a541a8cdd01cf1c20f7c1e66c4af77 Mifan <mifan@example.com> 1773649009 +0800	commit: Add absolute time formatting to frontend device views
