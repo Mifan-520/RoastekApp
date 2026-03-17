@@ -19,6 +19,10 @@ const zLadderPayload = {
     { id: "speed-z", label: "速度控制", description: "2.4 m/s", icon: "gauge", active: true, tone: "amber" },
     { id: "fan-z", label: "散热风机", description: "运行中", icon: "fan", active: true, tone: "emerald" },
   ],
+  // 新增：总电源状态
+  powerOn: true,
+  // 新增：变频器速率
+  frequency: { current: 45, target: 50 },
 };
 
 // 生豆处理站组态
@@ -42,6 +46,17 @@ const beanStationPayload = {
     { id: "conveyor-b", label: "输送带", description: "运行中", icon: "gauge", active: true, tone: "amber" },
     { id: "dust-b", label: "除尘系统", description: "运行中", icon: "fan", active: true, tone: "emerald" },
   ],
+  // 新增：总电源状态
+  powerOn: true,
+  // 新增：设备在线状态
+  equipment: [
+    { id: "cleaner", name: "清洁机", status: "online" },
+    { id: "destoner", name: "去石机", status: "online" },
+    { id: "grader", name: "分级机", status: "offline" },
+    { id: "dryer", name: "烘干机", status: "online" },
+    { id: "elevator", name: "提升机", status: "running" },
+    { id: "conveyor", name: "输送带", status: "running" },
+  ],
 };
 
 // 智能仓储组态
@@ -64,6 +79,21 @@ const warehousePayload = {
     { id: "ac-w", label: "温控系统", description: "制冷中", icon: "power", active: true, tone: "emerald" },
     { id: "stacker-w", label: "堆垛机", description: "待机", icon: "gauge", active: false, tone: "amber" },
     { id: "monitor-w", label: "监控系统", description: "运行中", icon: "fan", active: true, tone: "emerald" },
+  ],
+  // 新增：总电源状态
+  powerOn: true,
+  // 新增：10个仓的重量数据
+  bins: [
+    { id: 1, weight: 125, maxWeight: 200 },
+    { id: 2, weight: 80, maxWeight: 200 },
+    { id: 3, weight: 200, maxWeight: 200 },
+    { id: 4, weight: 45, maxWeight: 200 },
+    { id: 5, weight: 175, maxWeight: 200 },
+    { id: 6, weight: 60, maxWeight: 200 },
+    { id: 7, weight: 110, maxWeight: 200 },
+    { id: 8, weight: 95, maxWeight: 200 },
+    { id: 9, weight: 150, maxWeight: 200 },
+    { id: 10, weight: 30, maxWeight: 200 },
   ],
 };
 
