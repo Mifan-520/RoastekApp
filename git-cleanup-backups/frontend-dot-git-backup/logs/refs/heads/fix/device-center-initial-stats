@@ -1,6 +1,0 @@
-0000000000000000000000000000000000000000 9cbffbb4c713713c2b83caba8af6138c40232d2b Mifan <mifan@example.com> 1773631917 +0800	branch: Created from HEAD
-9cbffbb4c713713c2b83caba8af6138c40232d2b acc9b19f6dddc7a4897d43913c43ecd33184ff9b Mifan <mifan@example.com> 1773632483 +0800	commit: Add device stats placeholder utility
-acc9b19f6dddc7a4897d43913c43ecd33184ff9b 4ffd205cdaa2a254b4ae275a789dd188b90666d5 Mifan <mifan@example.com> 1773632501 +0800	commit: Update device center stats loading state
-4ffd205cdaa2a254b4ae275a789dd188b90666d5 6432ad676f8dc26eb0c2c92e7cacf8846cd0ed03 Mifan <mifan@example.com> 1773632628 +0800	commit: Update deployment docs and env defaults
-6432ad676f8dc26eb0c2c92e7cacf8846cd0ed03 2491343a6ce8746c1a2bedb0ca91fcf01c1086c0 Mifan <mifan@example.com> 1773632659 +0800	commit: Clarify AI deployment and device stats guidelines
-2491343a6ce8746c1a2bedb0ca91fcf01c1086c0 5faa03ba767ac953e0df400b655426a0909764ee Mifan <mifan@example.com> 1773642840 +0800	commit: feat: 实现组态占位功能
