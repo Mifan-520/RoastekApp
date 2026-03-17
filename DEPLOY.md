@@ -23,7 +23,7 @@ You can either:
 
 ```bash
 cp .env.example .env
-edit .env and replace the admin password plus public origin
+edit .env and set ADMIN_PASSWORD, POSTGRES_PASSWORD, FRONTEND_ORIGIN
 bash scripts/server-up.sh
 ```
 
@@ -33,6 +33,18 @@ Open:
 
 For a real server domain, set `FRONTEND_ORIGIN` in `.env` to the exact public origin users will open, for example `https://app.your-company.com`.
 
+## PostgreSQL persistence and one-time migration
+
+Current stack stores device state in PostgreSQL (`postgres` service + `backend` `DATABASE_URL`).
+
+- `backend` starts only after PostgreSQL healthcheck passes
+- On first startup with empty DB, backend creates `app_state` table automatically
+- If `/app/data/devices.json` exists (legacy JSON mode), backend imports it once into PostgreSQL
+
+For existing server deployments that already used the old `roastek-data` volume, keep that volume when upgrading. It is mounted read-only to `/app/data` so the backend can auto-import legacy data on first PostgreSQL boot.
+
+After confirming data migrated, you can optionally stop mounting legacy JSON by removing `LEGACY_DEVICES_FILE` and the read-only `/app/data` volume mapping in `docker-compose.yml`.
+
 ## Update after pushing to GitHub
 
 ```bash
@@ -40,6 +52,46 @@ bash scripts/server-update.sh
 ```
 
 `server-update.sh` now uses `git pull --ff-only` so deployment stops instead of creating an unexpected merge commit on the server.
+
+## Server AI execution flow
+
+If another AI agent runs deployment inside the Linux server, use this exact order:
+
+1. Read `SERVER_AI_DEPLOYMENT.md`
+2. Run `bash scripts/server-update.sh`
+3. Check `docker compose ps` and `docker compose logs backend --tail=200`
+4. Verify backend health and DB path:
+
+```bash
+curl -fsS http://127.0.0.1:3001/healthz
+docker exec roastek-backend printenv DATABASE_URL
+```
+
+5. Verify frontend and API from public entrypoint:
+
+```bash
+curl -I http://127.0.0.1:${WEB_PORT:-8088}
+curl -fsS http://127.0.0.1:${WEB_PORT:-8088}/api/healthz
+```
+
+If any step fails, stop and inspect `docker compose logs` before retry.
+
+## Public network ports (important)
+
+Recommended production exposure:
+
+- Open internet: `80/443` only (through host-level Nginx)
+- SSH management: `22` (restricted source IP)
+- Keep `8088` internal/private if host-level Nginx is used
+- Do not expose PostgreSQL `5432` publicly
+
+If you are in initial internal testing and temporarily expose `${WEB_PORT:-8088}`, still keep `5432` closed.
+
+## Deployment-only UI style drift (resolved)
+
+If UI looks different only after deployment (especially HMI pages), check Tailwind source scanning first.
+
+This repo now includes `frontend/HMI/**` in Tailwind scan sources (`frontend/src/styles/tailwind.css`), fixing a production build issue where HMI classes were omitted and pages degraded to fallback/white styling.
 
 ## Do you still need Nginx?
 
