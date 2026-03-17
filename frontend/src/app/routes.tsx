@@ -1,10 +1,6 @@
 import { createBrowserRouter } from "react-router";
 import { MobileLayout } from "./layouts/MobileLayout";
 import { Login } from "./pages/Login";
-import { DeviceList } from "./pages/DeviceList";
-import { DeviceOverview } from "./pages/DeviceOverview";
-import { DeviceUI } from "./pages/DeviceUI";
-import { SettingsPage } from "./pages/Settings";
 
 export const router = createBrowserRouter([
   {
@@ -13,10 +9,34 @@ export const router = createBrowserRouter([
     children: [
       { index: true, Component: Login },
       { path: "login", Component: Login },
-      { path: "devices", Component: DeviceList },
-      { path: "devices/:id", Component: DeviceOverview },
-      { path: "devices/:id/config/:configId", Component: DeviceUI },
-      { path: "settings", Component: SettingsPage },
+      {
+        path: "devices",
+        lazy: async () => {
+          const module = await import("./pages/DeviceList");
+          return { Component: module.DeviceList };
+        },
+      },
+      {
+        path: "devices/:id",
+        lazy: async () => {
+          const module = await import("./pages/DeviceOverview");
+          return { Component: module.DeviceOverview };
+        },
+      },
+      {
+        path: "devices/:id/config/:configId",
+        lazy: async () => {
+          const module = await import("./pages/DeviceUI");
+          return { Component: module.DeviceUI };
+        },
+      },
+      {
+        path: "settings",
+        lazy: async () => {
+          const module = await import("./pages/Settings");
+          return { Component: module.SettingsPage };
+        },
+      },
     ],
   },
 ]);

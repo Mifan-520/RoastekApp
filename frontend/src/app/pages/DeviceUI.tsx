@@ -38,10 +38,10 @@ function ControlIcon({ icon, active }: { icon?: DeviceUiControlItem["icon"]; act
 }
 
 export function DeviceUI() {
-  const { id } = useParams();
+  const { id, configId } = useParams();
   const navigate = useNavigate();
 
-const [device, setDevice] = useState<DeviceRecord | null>(null);
+  const [device, setDevice] = useState<DeviceRecord | null>(null);
   const [config, setConfig] = useState<DeviceConfigRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -64,11 +64,13 @@ const [device, setDevice] = useState<DeviceRecord | null>(null);
 
       try {
         const [nextDevice, nextConfig] = await Promise.all([getDevice(id), getDeviceConfig(id)]);
+        const selectedConfig =
+          !configId || nextConfig.id === configId ? nextConfig : null;
         if (!active) {
           return;
         }
         setDevice(nextDevice);
-        setConfig(nextConfig);
+        setConfig(selectedConfig);
       } catch {
         if (!active) {
           return;
@@ -86,9 +88,9 @@ const [device, setDevice] = useState<DeviceRecord | null>(null);
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [configId, id]);
 
-if (isLoading) {
+  if (isLoading) {
     return <div className="flex flex-col min-h-full items-center justify-center p-6 bg-[#0d0708] text-slate-100"><h2 className="text-xl font-bold">加载中...</h2></div>;
   }
 
@@ -104,7 +106,7 @@ if (isLoading) {
         <div className="flex-1 flex items-center justify-center p-6 text-slate-400 font-medium">加载失败，请重试</div>
       </div>
     );
-}
+  }
 
   if (!isDesigned) {
     return (
@@ -147,7 +149,7 @@ if (isLoading) {
     );
   }
 
-// 检查是否有专用HMI组件
+  // 检查是否有专用HMI组件
   const HMIComponent = getHMIComponent(config.id, device.type);
 
   // 如果有专用HMI组件，使用它渲染

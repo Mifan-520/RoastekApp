@@ -4,10 +4,13 @@ import { fileURLToPath } from "node:url";
 import pg from "pg";
 import { config } from "./config.js";
 import { seedDevices } from "./data/devices.js";
+import { createSeedUsers } from "./data/users.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = join(__dirname, "..", "data");
 const DEVICES_FILE = join(DATA_DIR, "devices.json");
+const USERS_FILE = join(DATA_DIR, "users.json");
+const GROUPS_FILE = join(DATA_DIR, "groups.json");
 const LEGACY_DEVICES_FILE = config.legacyDevicesFile || DEVICES_FILE;
 const IS_TEST_RUNTIME =
   process.env.NODE_ENV === "test"
@@ -82,6 +85,26 @@ function getSeedDevicesFromLegacyFile() {
   }
 }
 
+function getSeedUsers() {
+  return createSeedUsers(config);
+}
+
+function isValidUserArray(payload) {
+  return Array.isArray(payload) && payload.every((item) => item && typeof item === "object" && typeof item.id === "string" && typeof item.username === "string" && typeof item.password === "string");
+}
+
+function isValidGroupArray(payload) {
+  return Array.isArray(payload) && payload.every((item) => (
+    item
+    && typeof item === "object"
+    && typeof item.id === "string"
+    && typeof item.userId === "string"
+    && typeof item.name === "string"
+    && Array.isArray(item.deviceIds)
+    && item.deviceIds.every((deviceId) => typeof deviceId === "string")
+  ));
+}
+
 async function initializePostgresStorage() {
   const client = await connectWithRetry();
 
@@ -114,6 +137,42 @@ async function initializePostgresStorage() {
       console.log(
         `[Storage] PostgreSQL initialized with ${fromLegacyFile ? "legacy JSON" : "seed"} data (${initialDevices.length} devices)`
       );
+    }
+
+    const existingUsers = await client.query(
+      "SELECT payload FROM app_state WHERE state_key = $1",
+      ["users"]
+    );
+
+    if (existingUsers.rowCount === 0) {
+      const initialUsers = structuredClone(getSeedUsers());
+
+      await client.query(
+        `
+        INSERT INTO app_state (state_key, payload, updated_at)
+        VALUES ($1, $2::jsonb, NOW())
+      `,
+        ["users", JSON.stringify(initialUsers)]
+      );
+
+      console.log(`[Storage] PostgreSQL initialized with seed users (${initialUsers.length} users)`);
+    }
+
+    const existingGroups = await client.query(
+      "SELECT payload FROM app_state WHERE state_key = $1",
+      ["groups"]
+    );
+
+    if (existingGroups.rowCount === 0) {
+      await client.query(
+        `
+        INSERT INTO app_state (state_key, payload, updated_at)
+        VALUES ($1, $2::jsonb, NOW())
+      `,
+        ["groups", JSON.stringify([])]
+      );
+
+      console.log("[Storage] PostgreSQL initialized with empty groups");
     }
   } finally {
     client.release();
@@ -206,6 +265,54 @@ export async function loadDevices() {
   return initialDevices;
 }
 
+export async function loadUsers() {
+  if (IS_TEST_RUNTIME) {
+    return structuredClone(getSeedUsers());
+  }
+
+  if (IS_POSTGRES_ENABLED) {
+    await initializeStorage();
+    const result = await getPool().query(
+      "SELECT payload FROM app_state WHERE state_key = $1",
+      ["users"]
+    );
+
+    const payload = result.rows[0]?.payload;
+
+    if (!isValidUserArray(payload)) {
+      console.error("[Storage] PostgreSQL users payload is invalid, fallback to seed users");
+      return structuredClone(getSeedUsers());
+    }
+
+    return structuredClone(payload);
+  }
+
+  ensureDataDir();
+
+  if (existsSync(USERS_FILE)) {
+    try {
+      const raw = readFileSync(USERS_FILE, "utf-8");
+      const data = JSON.parse(raw);
+
+      if (!isValidUserArray(data)) {
+        console.error("[Storage] users file payload is invalid, fallback to seed users");
+        return structuredClone(getSeedUsers());
+      }
+
+      console.log("[Storage] Loaded users from", USERS_FILE);
+      return structuredClone(data);
+    } catch (error) {
+      console.error("[Storage] Failed to load users, using seed data:", error.message);
+      return structuredClone(getSeedUsers());
+    }
+  }
+
+  console.log("[Storage] No existing user data, initializing with seed users");
+  const initialUsers = structuredClone(getSeedUsers());
+  await saveUsers(initialUsers);
+  return initialUsers;
+}
+
 export async function saveDevices(devices) {
   if (IS_TEST_RUNTIME) {
     return;
@@ -232,6 +339,113 @@ export async function saveDevices(devices) {
     console.log("[Storage] Saved", devices.length, "devices to", DEVICES_FILE);
   } catch (error) {
     console.error("[Storage] Failed to save devices:", error.message);
+    throw error;
+  }
+}
+
+export async function saveUsers(users) {
+  if (IS_TEST_RUNTIME) {
+    return;
+  }
+
+  if (IS_POSTGRES_ENABLED) {
+    await initializeStorage();
+    await getPool().query(
+      `
+      INSERT INTO app_state (state_key, payload, updated_at)
+      VALUES ($1, $2::jsonb, NOW())
+      ON CONFLICT (state_key)
+      DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()
+    `,
+      ["users", JSON.stringify(users)]
+    );
+    return;
+  }
+
+  ensureDataDir();
+
+  try {
+    writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), "utf-8");
+    console.log("[Storage] Saved", users.length, "users to", USERS_FILE);
+  } catch (error) {
+    console.error("[Storage] Failed to save users:", error.message);
+    throw error;
+  }
+}
+
+export async function loadGroups() {
+  if (IS_TEST_RUNTIME) {
+    return [];
+  }
+
+  if (IS_POSTGRES_ENABLED) {
+    await initializeStorage();
+    const result = await getPool().query(
+      "SELECT payload FROM app_state WHERE state_key = $1",
+      ["groups"]
+    );
+
+    const payload = result.rows[0]?.payload;
+
+    if (!isValidGroupArray(payload)) {
+      console.error("[Storage] PostgreSQL groups payload is invalid, fallback to []");
+      return [];
+    }
+
+    return structuredClone(payload);
+  }
+
+  ensureDataDir();
+
+  if (existsSync(GROUPS_FILE)) {
+    try {
+      const raw = readFileSync(GROUPS_FILE, "utf-8");
+      const data = JSON.parse(raw);
+
+      if (!isValidGroupArray(data)) {
+        console.error("[Storage] groups file payload is invalid, fallback to []");
+        return [];
+      }
+
+      console.log("[Storage] Loaded groups from", GROUPS_FILE);
+      return structuredClone(data);
+    } catch (error) {
+      console.error("[Storage] Failed to load groups, fallback to []:", error.message);
+      return [];
+    }
+  }
+
+  await saveGroups([]);
+  return [];
+}
+
+export async function saveGroups(groups) {
+  if (IS_TEST_RUNTIME) {
+    return;
+  }
+
+  if (IS_POSTGRES_ENABLED) {
+    await initializeStorage();
+    await getPool().query(
+      `
+      INSERT INTO app_state (state_key, payload, updated_at)
+      VALUES ($1, $2::jsonb, NOW())
+      ON CONFLICT (state_key)
+      DO UPDATE SET payload = EXCLUDED.payload, updated_at = NOW()
+    `,
+      ["groups", JSON.stringify(groups)]
+    );
+    return;
+  }
+
+  ensureDataDir();
+
+  try {
+    writeFileSync(GROUPS_FILE, JSON.stringify(groups, null, 2), "utf-8");
+    console.log("[Storage] Saved", groups.length, "groups to", GROUPS_FILE);
+  } catch (error) {
+    console.error("[Storage] Failed to save groups:", error.message);
+    throw error;
   }
 }
 

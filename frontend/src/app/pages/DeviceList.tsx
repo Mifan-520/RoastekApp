@@ -1,30 +1,16 @@
 import { useNavigate } from "react-router";
 import { Settings, Server, Plus, X, Check, ArchiveX, Edit2, AlertTriangle, Info, AlertCircle, Trash2, User } from "lucide-react";
 import { useState, useEffect } from "react";
-import { getSession } from "../services/auth";
 import { claimDevice, deleteDevice, getDevices, updateDevice, type DeviceRecord } from "../services/devices";
+import { createGroup, deleteGroup, getGroups, updateGroup, type DeviceGroupRecord } from "../services/groups";
 import { formatAbsoluteTime } from "../utils/date";
 import { getVisibleDeviceAlarms } from "../utils/device-alarms";
 import { getDeviceStatsSummary } from "../utils/device-stats.js";
 
 export function DeviceList() {
   const navigate = useNavigate();
-  const session = getSession();
-  const groupStorageKey = `device_groups_${session?.user.username || "guest"}`;
   const [activeTab, setActiveTab] = useState<string>("all");
-  const [groups, setGroups] = useState<{ id: string, name: string, deviceIds: string[] }[]>(() => {
-    const saved = localStorage.getItem(groupStorageKey);
-
-    if (!saved) {
-      return [];
-    }
-
-    try {
-      return JSON.parse(saved);
-    } catch {
-      return [];
-    }
-  });
+  const [groups, setGroups] = useState<DeviceGroupRecord[]>([]);
   
   const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [editingGroupId, setEditingGroupId] = useState<string | null>(null);
@@ -48,19 +34,6 @@ export function DeviceList() {
   const [isDeviceSubmitting, setIsDeviceSubmitting] = useState(false);
 
   useEffect(() => {
-    localStorage.setItem(groupStorageKey, JSON.stringify(groups));
-  }, [groupStorageKey, groups]);
-
-  useEffect(() => {
-    setGroups((current) =>
-      current.map((group) => ({
-        ...group,
-        deviceIds: group.deviceIds.filter((deviceId) => devices.some((device) => device.id === deviceId)),
-      }))
-    );
-  }, [devices]);
-
-  useEffect(() => {
     let active = true;
 
     async function loadDeviceList() {
@@ -68,13 +41,14 @@ export function DeviceList() {
       setListError("");
 
       try {
-        const nextDevices = await getDevices();
+        const [nextDevices, nextGroups] = await Promise.all([getDevices(), getGroups()]);
 
         if (!active) {
           return;
         }
 
         setDevices(nextDevices);
+        setGroups(nextGroups);
       } catch (error) {
         if (!active) {
           return;
@@ -164,9 +138,9 @@ export function DeviceList() {
 
     try {
       await deleteDevice(deleteConfirmDeviceId);
-      setGroups(groups.map(g => ({...g, deviceIds: g.deviceIds.filter(id => id !== deleteConfirmDeviceId)})));
-      const nextDevices = await getDevices();
+      const [nextDevices, nextGroups] = await Promise.all([getDevices(), getGroups()]);
       setDevices(nextDevices);
+      setGroups(nextGroups);
       setDeleteConfirmDeviceId(null);
     } catch (error) {
       setDeviceFormError(error instanceof Error ? error.message : "删除设备失败");
@@ -190,34 +164,45 @@ export function DeviceList() {
     }
   };
 
-  const handleSaveGroup = () => {
+  const handleSaveGroup = async () => {
     if (!newGroupName.trim() || selectedDeviceIds.length === 0) return;
-    
-    if (editingGroupId) {
-       setGroups(groups.map(g => g.id === editingGroupId ? {
-           ...g,
-           name: newGroupName.trim(),
-           deviceIds: selectedDeviceIds
-       } : g));
-    } else {
-        const newGroup = {
-          id: `group-${Date.now()}`,
+
+    try {
+      if (editingGroupId) {
+        await updateGroup(editingGroupId, {
           name: newGroupName.trim(),
           deviceIds: selectedDeviceIds,
-        };
-        setGroups([...groups, newGroup]);
-        setActiveTab(newGroup.id);
+        });
+      } else {
+        const created = await createGroup({
+          name: newGroupName.trim(),
+          deviceIds: selectedDeviceIds,
+        });
+        setActiveTab(created.id);
+      }
+
+      const nextGroups = await getGroups();
+      setGroups(nextGroups);
+      setIsGroupModalOpen(false);
+    } catch (error) {
+      setListError(error instanceof Error ? error.message : "保存分组失败");
     }
-    setIsGroupModalOpen(false);
   };
 
-  const handleDeleteGroup = () => {
+  const handleDeleteGroup = async () => {
     if (!deleteConfirmGroupId) return;
-    setGroups(groups.filter(g => g.id !== deleteConfirmGroupId));
-    if (activeTab === deleteConfirmGroupId) {
+
+    try {
+      await deleteGroup(deleteConfirmGroupId);
+      const nextGroups = await getGroups();
+      setGroups(nextGroups);
+      if (activeTab === deleteConfirmGroupId) {
         setActiveTab("all");
+      }
+      setDeleteConfirmGroupId(null);
+    } catch (error) {
+      setListError(error instanceof Error ? error.message : "删除分组失败");
     }
-    setDeleteConfirmGroupId(null);
   };
 
   const filteredDevices = activeTab === "all" 
