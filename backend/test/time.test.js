@@ -29,13 +29,20 @@ test("resolveDeviceLastActive ignores placeholder values and falls back to updat
 });
 
 test("claim response returns a canonical lastActive timestamp", async () => {
-  const app = createApp();
+  const app = await createApp();
+  const adminSession = await loginAs(app, "admin", "admin");
   const session = await loginAs(app, "user", "user");
+
+  const releaseResponse = await request(app)
+    .delete("/api/devices/dev-bean-001")
+    .set("Authorization", `Bearer ${adminSession.token}`);
+
+  assert.equal(releaseResponse.status, 204);
 
   const claimResponse = await request(app)
     .post("/api/devices/claim")
     .set("Authorization", `Bearer ${session.token}`)
-    .send({ claimCode: "V6B3L8Q4", name: "无历史活跃时间设备" });
+    .send({ claimCode: "BEAN0001", name: "无历史活跃时间设备" });
 
   assert.equal(claimResponse.status, 201);
   assert.match(claimResponse.body.device.updatedAt, /\+08:00$/);
@@ -43,11 +50,11 @@ test("claim response returns a canonical lastActive timestamp", async () => {
 });
 
 test("re-claim after delete does not reuse the previous owner's last active time", async () => {
-  const app = createApp();
+  const app = await createApp();
   const adminSession = await loginAs(app, "admin", "admin");
 
   const deleteResponse = await request(app)
-    .delete("/api/devices/dev-fz-001")
+    .delete("/api/devices/dev-bean-001")
     .set("Authorization", `Bearer ${adminSession.token}`);
 
   assert.equal(deleteResponse.status, 204);
@@ -56,7 +63,7 @@ test("re-claim after delete does not reuse the previous owner's last active time
   const claimResponse = await request(app)
     .post("/api/devices/claim")
     .set("Authorization", `Bearer ${userSession.token}`)
-    .send({ claimCode: "H7K2M4Q9", name: "重新认领设备" });
+    .send({ claimCode: "BEAN0001", name: "重新认领设备" });
 
   assert.equal(claimResponse.status, 201);
   assert.equal(claimResponse.body.device.lastSeenAt, null);

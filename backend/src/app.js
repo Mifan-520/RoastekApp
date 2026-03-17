@@ -97,11 +97,22 @@ function normalizeClaimCode(value) {
     .toUpperCase();
 }
 
-export function createApp() {
+export async function createApp() {
   const app = express();
   const users = createSeedUsers(config);
-  const devices = loadDevices();
+  const devices = await loadDevices();
   const tokenToUserId = new Map(users.map((user) => [`token-${user.username}`, user.id]));
+
+  async function persistDevices(res) {
+    try {
+      await saveDevices(devices);
+      return true;
+    } catch (error) {
+      console.error("[Storage] Failed to persist devices:", error.message);
+      res.status(500).json({ message: "设备状态保存失败" });
+      return false;
+    }
+  }
 
   function getUserByToken(token) {
     const userId = tokenToUserId.get(token);
@@ -183,7 +194,7 @@ export function createApp() {
     res.json({ devices: ownedDevices });
   });
 
-  app.post("/api/devices/claim", requireAuth, (req, res) => {
+  app.post("/api/devices/claim", requireAuth, async (req, res) => {
     const claimCode = normalizeClaimCode(req.body?.claimCode);
     const name = String(req.body?.name || "").trim();
     const address = String(req.body?.address || "").trim();
@@ -215,7 +226,11 @@ export function createApp() {
     device.address = address || device.defaultAddress;
     device.boundAt = nowIso();
     device.updatedAt = device.boundAt;
-    saveDevices(devices);
+    const persisted = await persistDevices(res);
+
+    if (!persisted) {
+      return;
+    }
 
     res.status(201).json({ device: serializeDevice(device) });
   });
@@ -230,7 +245,7 @@ export function createApp() {
     res.json({ device: serializeDevice(device) });
   });
 
-  app.patch("/api/devices/:id", requireAuth, (req, res) => {
+  app.patch("/api/devices/:id", requireAuth, async (req, res) => {
     const device = getOwnedDevice(req, res);
 
     if (!device) {
@@ -249,17 +264,21 @@ export function createApp() {
       return;
     }
 
-device.name = name;
+    device.name = name;
     if (type) device.type = type;
     device.location = nextLocation;
     device.address = address || device.address;
     device.updatedAt = nowIso();
-    saveDevices(devices);
+    const persisted = await persistDevices(res);
+
+    if (!persisted) {
+      return;
+    }
 
     res.json({ device: serializeDevice(device) });
   });
 
-  app.delete("/api/devices/:id", requireAuth, (req, res) => {
+  app.delete("/api/devices/:id", requireAuth, async (req, res) => {
     const device = getOwnedDevice(req, res);
 
     if (!device) {
@@ -267,7 +286,12 @@ device.name = name;
     }
 
     resetDevice(device);
-    saveDevices(devices);
+    const persisted = await persistDevices(res);
+
+    if (!persisted) {
+      return;
+    }
+
     res.status(204).send();
   });
 
@@ -281,7 +305,7 @@ device.name = name;
     res.json({ config: device.config || null });
   });
 
-  app.patch("/api/devices/:id/config", requireAuth, (req, res) => {
+  app.patch("/api/devices/:id/config", requireAuth, async (req, res) => {
     const device = getOwnedDevice(req, res);
 
     if (!device) {
@@ -302,7 +326,12 @@ device.name = name;
 
     device.config.name = name;
     device.updatedAt = nowIso();
-    saveDevices(devices);
+    const persisted = await persistDevices(res);
+
+    if (!persisted) {
+      return;
+    }
+
     res.json({ config: { ...device.config } });
   });
 

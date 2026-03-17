@@ -4,7 +4,7 @@ import request from "supertest";
 import { createApp } from "../src/app.js";
 import { seedDevices } from "../src/data/devices.js";
 
-function buildApp() {
+async function buildApp() {
   return createApp();
 }
 
@@ -18,7 +18,7 @@ async function loginAs(app, username, password) {
 }
 
 test("accepts admin login and returns admin role label", async () => {
-  const app = buildApp();
+  const app = await buildApp();
   const response = await request(app)
     .post("/api/auth/login")
     .send({ username: "admin", password: "admin" });
@@ -31,7 +31,7 @@ test("accepts admin login and returns admin role label", async () => {
 });
 
 test("accepts user login and returns user role label", async () => {
-  const app = buildApp();
+  const app = await buildApp();
   const response = await request(app)
     .post("/api/auth/login")
     .send({ username: "user", password: "user" });
@@ -43,17 +43,17 @@ test("accepts user login and returns user role label", async () => {
 });
 
 test("rejects unauthenticated device list access", async () => {
-  const app = buildApp();
+  const app = await buildApp();
   const response = await request(app).get("/api/devices");
 
   assert.equal(response.status, 401);
 });
 
-test("seeds ten devices and keeps three Fujian Sanxiyan devices bound with configs", async () => {
-  const app = buildApp();
+test("seeds three Fujian Sanxiyan devices bound with configs", async () => {
+  const app = await buildApp();
   const session = await loginAs(app, "admin", "admin");
 
-  assert.equal(seedDevices.length, 10);
+  assert.equal(seedDevices.length, 3);
 
   const response = await request(app)
     .get("/api/devices")
@@ -63,23 +63,30 @@ test("seeds ten devices and keeps three Fujian Sanxiyan devices bound with confi
   assert.equal(response.body.devices.length, 3);
   assert.deepEqual(
     response.body.devices.map((device) => device.name),
-    ["福州三喜燕一号线", "福州三喜燕二号线", "福州三喜燕三号线"]
+    ["Z字梯", "生豆处理站", "智能仓储"]
   );
   assert.equal(response.body.devices.every((device) => device.config && device.config.payload), true);
 });
 
 test("claims an unbound device with a fixed code and custom name", async () => {
-  const app = buildApp();
+  const app = await buildApp();
+  const adminSession = await loginAs(app, "admin", "admin");
   const session = await loginAs(app, "user", "user");
+
+  const releaseResponse = await request(app)
+    .delete("/api/devices/dev-bean-001")
+    .set("Authorization", `Bearer ${adminSession.token}`);
+
+  assert.equal(releaseResponse.status, 204);
 
   const claimResponse = await request(app)
     .post("/api/devices/claim")
     .set("Authorization", `Bearer ${session.token}`)
-    .send({ claimCode: "X9K4M2P7", name: "我的测试设备" });
+    .send({ claimCode: "BEAN0001", name: "我的测试设备" });
 
   assert.equal(claimResponse.status, 201);
   assert.equal(claimResponse.body.device.name, "我的测试设备");
-  assert.equal(claimResponse.body.device.claimCode, "X9K4M2P7");
+  assert.equal(claimResponse.body.device.claimCode, "BEAN0001");
   assert.equal(claimResponse.body.device.config, null);
 
   const listResponse = await request(app)
@@ -92,21 +99,27 @@ test("claims an unbound device with a fixed code and custom name", async () => {
 });
 
 test("prevents claiming an already bound device until it is deleted", async () => {
-  const app = buildApp();
+  const app = await buildApp();
   const userSession = await loginAs(app, "user", "user");
   const adminSession = await loginAs(app, "admin", "admin");
+
+  const releaseResponse = await request(app)
+    .delete("/api/devices/dev-bean-001")
+    .set("Authorization", `Bearer ${adminSession.token}`);
+
+  assert.equal(releaseResponse.status, 204);
 
   const firstClaim = await request(app)
     .post("/api/devices/claim")
     .set("Authorization", `Bearer ${userSession.token}`)
-    .send({ claimCode: "C8N6R4T2", name: "用户设备" });
+    .send({ claimCode: "BEAN0001", name: "用户设备" });
 
   assert.equal(firstClaim.status, 201);
 
   const duplicateClaim = await request(app)
     .post("/api/devices/claim")
     .set("Authorization", `Bearer ${adminSession.token}`)
-    .send({ claimCode: "C8N6R4T2", name: "管理员设备" });
+    .send({ claimCode: "BEAN0001", name: "管理员设备" });
 
   assert.equal(duplicateClaim.status, 409);
 
@@ -119,14 +132,14 @@ test("prevents claiming an already bound device until it is deleted", async () =
   const secondClaim = await request(app)
     .post("/api/devices/claim")
     .set("Authorization", `Bearer ${adminSession.token}`)
-    .send({ claimCode: "C8N6R4T2", name: "管理员设备" });
+    .send({ claimCode: "BEAN0001", name: "管理员设备" });
 
   assert.equal(secondClaim.status, 201);
   assert.equal(secondClaim.body.device.name, "管理员设备");
 });
 
 test("updates device fields and its single config name for the owner", async () => {
-  const app = buildApp();
+  const app = await buildApp();
   const session = await loginAs(app, "admin", "admin");
 
   const deviceList = await request(app)
@@ -154,7 +167,7 @@ test("updates device fields and its single config name for the owner", async () 
 });
 
 test("allows updating device with name and address only for existing frontend payload", async () => {
-  const app = buildApp();
+  const app = await buildApp();
   const session = await loginAs(app, "admin", "admin");
 
   const deviceList = await request(app)
@@ -176,13 +189,20 @@ test("allows updating device with name and address only for existing frontend pa
 });
 
 test("returns null when the device has no config", async () => {
-  const app = buildApp();
+  const app = await buildApp();
+  const adminSession = await loginAs(app, "admin", "admin");
   const session = await loginAs(app, "user", "user");
+
+  const releaseResponse = await request(app)
+    .delete("/api/devices/dev-bean-001")
+    .set("Authorization", `Bearer ${adminSession.token}`);
+
+  assert.equal(releaseResponse.status, 204);
 
   const claimResponse = await request(app)
     .post("/api/devices/claim")
     .set("Authorization", `Bearer ${session.token}`)
-    .send({ claimCode: "V6B3L8Q4", name: "无组态设备" });
+    .send({ claimCode: "BEAN0001", name: "无组态设备" });
 
   assert.equal(claimResponse.status, 201);
 
@@ -195,11 +215,11 @@ test("returns null when the device has no config", async () => {
 });
 
 test("returns structured config payload for seeded config screens", async () => {
-  const app = buildApp();
+  const app = await buildApp();
   const session = await loginAs(app, "admin", "admin");
 
   const configResponse = await request(app)
-    .get("/api/devices/dev-fz-001/config")
+    .get("/api/devices/dev-zladder-001/config")
     .set("Authorization", `Bearer ${session.token}`);
 
   assert.equal(configResponse.status, 200);
