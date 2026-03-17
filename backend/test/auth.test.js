@@ -150,3 +150,18 @@ test("returns null when the device has no config", async () => {
   assert.equal(configResponse.status, 200);
   assert.equal(configResponse.body.config, null);
 });
+
+test("returns structured config payload for seeded config screens", async () => {
+  const app = buildApp();
+  const session = await loginAs(app, "admin", "admin");
+
+  const configResponse = await request(app)
+    .get("/api/devices/dev-001/config")
+    .set("Authorization", `Bearer ${session.token}`);
+
+  assert.equal(configResponse.status, 200);
+  assert.equal(Array.isArray(configResponse.body.config.payload.summary), true);
+  assert.equal(typeof configResponse.body.config.payload.chart.title, "string");
+  assert.equal(Array.isArray(configResponse.body.config.payload.chart.data), true);
+  assert.equal(Array.isArray(configResponse.body.config.payload.controls), true);
+});

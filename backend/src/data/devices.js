@@ -22,14 +22,26 @@ export const seedDevices = [
       id: "default",
       name: "温室主组态",
       payload: {
-        chartData: [
-          { name: "照明能耗", value: 350 },
-          { name: "通风能耗", value: 280 },
-          { name: "水泵能耗", value: 420 },
-          { name: "其他能耗", value: 150 },
+        summary: [
+          { id: "temp", label: "棚内温度", value: "26.4", unit: "C", tone: "rose" },
+          { id: "humidity", label: "空气湿度", value: "68", unit: "%", tone: "amber" },
+          { id: "co2", label: "CO2 浓度", value: "540", unit: "ppm", tone: "emerald" },
         ],
-        switches: { s1: true, s2: false }
-      }
+        chart: {
+          title: "能耗分布统计",
+          data: [
+            { label: "照明能耗", value: 350, color: "#be123c" },
+            { label: "通风能耗", value: 280, color: "#f43f5e" },
+            { label: "水泵能耗", value: 420, color: "#fb7185" },
+            { label: "其他能耗", value: 150, color: "#fecdd3" },
+          ],
+        },
+        controls: [
+          { id: "fan-1", label: "排风机 1", description: "运行中 · 1.2kW", icon: "fan", active: true, tone: "rose" },
+          { id: "pump-main", label: "主水泵", description: "待机中", icon: "power", active: false, tone: "emerald" },
+          { id: "curtain-east", label: "东侧卷帘", description: "开启 40%", icon: "gauge", active: true, tone: "amber" },
+        ],
+      },
     },
   },
   {
@@ -54,6 +66,27 @@ export const seedDevices = [
     config: {
       id: "default",
       name: "水泵组态界面",
+      payload: {
+        summary: [
+          { id: "line-pressure", label: "管线压力", value: "0.46", unit: "MPa", tone: "emerald" },
+          { id: "flow", label: "瞬时流量", value: "32", unit: "m3/h", tone: "rose" },
+          { id: "power", label: "当前功率", value: "2.5", unit: "kW", tone: "amber" },
+        ],
+        chart: {
+          title: "泵站负载分布",
+          data: [
+            { label: "主泵", value: 46, color: "#10b981" },
+            { label: "辅泵", value: 24, color: "#34d399" },
+            { label: "补压回路", value: 18, color: "#6ee7b7" },
+            { label: "其他", value: 12, color: "#d1fae5" },
+          ],
+        },
+        controls: [
+          { id: "pump-a", label: "主泵 A", description: "运行中 · 2.5kW", icon: "power", active: true, tone: "emerald" },
+          { id: "pump-b", label: "备用泵 B", description: "已停止", icon: "power", active: false, tone: "rose" },
+          { id: "valve-1", label: "出水阀门", description: "开启 75%", icon: "gauge", active: true, tone: "amber" },
+        ],
+      },
     },
   },
   {
