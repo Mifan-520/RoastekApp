@@ -52,7 +52,7 @@ export function Login() {
           <h1 className="text-3xl font-bold text-gray-900 mb-2 tracking-tight">
             欢迎登录
           </h1>
-          <p className="text-gray-500 font-medium">IoT 管理与组态平台</p>
+          <p className="text-gray-500 font-medium">IoT 管理与监控平台</p>
         </div>
 
         {/* Login Form */}

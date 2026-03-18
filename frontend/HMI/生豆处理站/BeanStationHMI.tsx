@@ -9,7 +9,7 @@ import {
 interface Equipment {
   id: string;
   name: string;
-  status: "online" | "offline" | "running";
+  status: "online" | "offline";
 }
 
 interface BeanStationHMIProps {
@@ -24,11 +24,11 @@ interface BeanStationHMIProps {
 
 // 默认设备列表
 const DEFAULT_EQUIPMENT: Equipment[] = [
-  { id: "cleaner", name: "清洁机", status: "running" },
+  { id: "cleaner", name: "清洁机", status: "online" },
   { id: "stoneremover", name: "去石机", status: "online" },
   { id: "grader", name: "分级机", status: "online" },
   { id: "dryer", name: "烘干机", status: "offline" },
-  { id: "elevator", name: "提升机", status: "running" },
+  { id: "elevator", name: "提升机", status: "online" },
   { id: "conveyor", name: "输送带", status: "online" },
 ];
 
@@ -46,10 +46,9 @@ const EQUIPMENT_ICONS: Record<string, React.ElementType> = {
 const STATUS_STYLES = {
   online: { bg: "bg-rose-900/40", border: "border-rose-700/50", text: "text-rose-300", dot: "bg-rose-400" },
   offline: { bg: "bg-slate-900/40", border: "border-slate-700/50", text: "text-slate-400", dot: "bg-slate-500" },
-  running: { bg: "bg-emerald-900/40", border: "border-emerald-700/50", text: "text-emerald-300", dot: "bg-emerald-400 animate-pulse" },
 };
 
-const STATUS_LABELS = { online: "在线", offline: "离线", running: "运行中" };
+const STATUS_LABELS = { online: "在线", offline: "离线" };
 
 export function BeanStationHMI({ data, onControlChange }: BeanStationHMIProps) {
   const powerOn = data.powerOn ?? true;
@@ -104,7 +103,7 @@ export function BeanStationHMI({ data, onControlChange }: BeanStationHMIProps) {
                 className={`flex items-center gap-3 p-3 rounded-xl border transition-all ${style.bg} ${style.border}`}
               >
                 <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                  item.status === "running" ? "bg-emerald-500/20" : "bg-rose-500/20"
+                  item.status === "online" ? "bg-rose-500/20" : "bg-slate-500/20"
                 }`}>
                   <Icon className={`w-5 h-5 ${style.text}`} />
                 </div>

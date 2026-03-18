@@ -5,9 +5,11 @@ import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recha
 import {
   getDevice,
   getDeviceConfig,
+  updateDeviceConfigPayload,
   type DeviceRecord,
   type DeviceConfigRecord,
   type DeviceUiControlItem,
+  type DeviceUiPayload,
 } from "../services/devices";
 import { getHMIComponent } from "../../../HMI";
 
@@ -15,11 +17,10 @@ const STYLED_COLORS = ["#be123c", "#f43f5e", "#ffe4e6"];
 
 const toneClasses = {
   rose: "border-rose-800/40 bg-rose-900/15 text-rose-100",
-  emerald: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
   amber: "border-amber-500/30 bg-amber-500/10 text-amber-100",
 } as const;
 
-function getToneClass(tone?: "rose" | "emerald" | "amber") {
+function getToneClass(tone?: "rose" | "amber") {
   return tone ? toneClasses[tone] : "border-rose-900/20 bg-[#1a0f12] text-slate-100";
 }
 
@@ -101,7 +102,7 @@ export function DeviceUI() {
           <button onClick={() => navigate(-1)} className="p-2 -ml-2 mr-2 rounded-full hover:bg-rose-950/50 transition-colors text-rose-100">
             <ChevronLeft className="w-6 h-6" />
           </button>
-          <h1 className="text-[17px] font-bold tracking-tight text-white flex-1">组态界面</h1>
+          <h1 className="text-[17px] font-bold tracking-tight text-white flex-1">监控界面</h1>
         </div>
         <div className="flex-1 flex items-center justify-center p-6 text-slate-400 font-medium">加载失败，请重试</div>
       </div>
@@ -136,9 +137,9 @@ export function DeviceUI() {
               </div>
             </div>
             
-            <h2 className="text-xl font-bold text-white mb-3 tracking-tight">暂无组态画面</h2>
+            <h2 className="text-xl font-bold text-white mb-3 tracking-tight">暂无监控画面</h2>
             <p className="text-rose-200/50 text-[15px] font-medium max-w-[260px] leading-relaxed">
-              该设备尚未设计或绑定组态界面，请在工程后台进行配置。
+              该设备尚未设计或绑定监控界面，请在工程后台进行配置。
             </p>
             
             <button className="mt-10 px-8 py-3.5 bg-rose-900/30 hover:bg-rose-800/50 border border-rose-800/40 rounded-2xl text-rose-100 font-bold transition-all shadow-[0_0_20px_rgba(159,18,57,0.15)] backdrop-blur-md active:scale-95">
@@ -149,8 +150,34 @@ export function DeviceUI() {
     );
   }
 
-  // 检查是否有专用HMI组件
+// 检查是否有专用HMI组件
   const HMIComponent = getHMIComponent(config.id, device.type);
+
+  // 处理HMI控制变更，持久化到后端
+  const handleControlChange = async (controlId: string, value: unknown) => {
+    if (!config?.payload) return;
+    
+    // 更新payload中的相关数据
+    const updatedPayload: DeviceUiPayload = {
+      ...config.payload,
+    };
+    
+    // 处理三元催化HMI的modes更新
+    if (controlId === 'mode-params-update' && Array.isArray(value)) {
+      updatedPayload.modes = value;
+    }
+    // 处理countdowns更新
+    else if (controlId.startsWith('countdown-') && typeof value === 'object') {
+      updatedPayload.countdowns = value as DeviceUiPayload['countdowns'];
+    }
+    
+    try {
+      const updated = await updateDeviceConfigPayload(device.id, updatedPayload);
+      setConfig(updated);
+    } catch (error) {
+      console.error('Failed to persist control change:', error);
+    }
+  };
 
   // 如果有专用HMI组件，使用它渲染
   if (HMIComponent) {
@@ -163,7 +190,7 @@ export function DeviceUI() {
           </button>
           <h1 className="text-[17px] font-bold tracking-tight text-white flex-1">{config.name}</h1>
         </div>
-        <HMIComponent data={config.payload} />
+        <HMIComponent data={config.payload} onControlChange={handleControlChange} />
       </div>
     );
   }

@@ -378,22 +378,22 @@ export function DeviceList() {
               onClick={() => navigate(`/devices/${device.id}`)}
               className="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm hover:shadow-md hover:border-rose-100 transition-all cursor-pointer active:scale-[0.98] group relative overflow-hidden"
             >
-              {/* Highlight bar for online status */}
-              <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${device.status === 'online' ? 'bg-emerald-500' : 'bg-slate-300'}`} />
+{/* Highlight bar for online status */}
+              <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${device.status === 'online' ? 'bg-roastek-secondary' : 'bg-slate-300'}`} />
 
               <div className="flex items-start justify-between gap-3 mb-4">
                 <div className="flex items-center space-x-4 min-w-0 flex-1">
                   {/* Unified Device Icon */}
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-colors relative ${
-                    device.status === 'online' ? 'bg-emerald-50' : 'bg-slate-50'
+                    device.status === 'online' ? 'bg-roastek-light' : 'bg-slate-50'
                   }`}>
                     {device.status === 'online' && (
                       <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border-2 border-white"></span>
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-roastek-secondary opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-3 w-3 bg-roastek-secondary border-2 border-white"></span>
                       </span>
                     )}
-                    <Server className={`w-6 h-6 ${device.status === 'online' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                    <Server className={`w-6 h-6 ${device.status === 'online' ? 'text-roastek-primary' : 'text-slate-400'}`} />
                   </div>
                   <div className="min-w-0 flex-1">
                     <h4 className={`font-bold text-base ${device.status === 'online' ? 'text-slate-900' : 'text-slate-500'}`}>{device.name}</h4>
@@ -405,7 +405,7 @@ export function DeviceList() {
                 <div className="flex flex-col items-end space-y-2 flex-shrink-0">
                   <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide ${
                     device.status === 'online' 
-                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-200/50' 
+                      ? 'bg-roastek-light text-roastek-primary border border-roastek-accent' 
                       : 'bg-slate-100 text-slate-600 border border-slate-200/50'
                   }`}>
                     {device.status === 'online' ? '在线' : '离线'}

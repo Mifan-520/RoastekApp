@@ -52,13 +52,13 @@ export const MOCK_DEVICES: Device[] = [
 
 export const MOCK_CONFIGS: Record<string, DeviceConfig[]> = {
   "dev-001": [
-    { id: "cfg-env", name: "环境监控组态", iconType: "thermometer", description: "温湿度实时监测与设备控制" }
+    { id: "cfg-env", name: "环境监控", iconType: "thermometer", description: "温湿度实时监测与设备控制" }
   ],
   "dev-002": [
-    { id: "cfg-pump", name: "控制面板组态", iconType: "power", description: "设备运行状态及启停控制" }
+    { id: "cfg-pump", name: "控制面板监控", iconType: "power", description: "设备运行状态及启停控制" }
   ],
   "dev-003": [
-    { id: "cfg-power", name: "能耗监控组态", iconType: "zap", description: "核心参数及能耗监控" }
+    { id: "cfg-power", name: "能耗监控", iconType: "zap", description: "核心参数及能耗监控" }
   ]
 };
 

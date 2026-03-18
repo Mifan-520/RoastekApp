@@ -11,7 +11,7 @@ export interface DeviceUiSummaryItem {
   label: string;
   value: string;
   unit?: string;
-  tone?: "rose" | "emerald" | "amber";
+  tone?: "rose" | "amber";
 }
 
 export interface DeviceUiChartItem {
@@ -26,7 +26,14 @@ export interface DeviceUiControlItem {
   description: string;
   icon?: "fan" | "power" | "gauge";
   active: boolean;
-  tone?: "rose" | "emerald" | "amber";
+  tone?: "rose" | "amber";
+}
+
+export interface DeviceUiCountdownItem {
+  id: string;
+  label: string;
+  value: number;  // 秒数
+  editable?: boolean;
 }
 
 export interface DeviceUiPayload {
@@ -36,6 +43,13 @@ export interface DeviceUiPayload {
     data: DeviceUiChartItem[];
   };
   controls: DeviceUiControlItem[];
+  countdowns?: DeviceUiCountdownItem[];
+  modes?: Array<{ fireMinutes: number; closeMinutes: number }>;
+  temperature?: number;
+  powerOn?: boolean;
+  equipment?: Array<{ id: string; name: string; status: string }>;
+  bins?: Array<{ id: number; weight: number; maxWeight: number }>;
+  frequency?: { current: number; target: number };
 }
 
 export interface DeviceAlarmRecord {
@@ -134,6 +148,15 @@ export async function updateDeviceConfig(deviceId: string, input: { name: string
   });
   const payload = await parseResponse<{ config: DeviceConfigRecord }>(response);
   return payload.config;
+}
+
+export async function updateDeviceConfigPayload(deviceId: string, payload: DeviceUiPayload) {
+  const response = await authRequest(`/devices/${deviceId}/config`, {
+    method: "PATCH",
+    body: JSON.stringify({ payload }),
+  });
+  const result = await parseResponse<{ config: DeviceConfigRecord }>(response);
+  return result.config;
 }
 
 export async function deleteAlarm(deviceId: string, alarmId: string) {

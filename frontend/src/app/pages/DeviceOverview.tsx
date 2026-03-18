@@ -104,7 +104,7 @@ export function DeviceOverview() {
           <div className="flex items-center space-x-3 mb-2">
             <h1 className="text-2xl font-bold tracking-tight">{device.name}</h1>
             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold tracking-wide ${
-              device.status === 'online' ? 'bg-emerald-400/20 text-emerald-100 border border-emerald-400/30' : 'bg-slate-400/20 text-slate-200 border border-slate-400/30'
+              device.status === 'online' ? 'bg-roastek-secondary/20 text-roastek-accent border border-roastek-secondary/30' : 'bg-slate-400/20 text-slate-200 border border-slate-400/30'
             }`}>
               {device.status === 'online' ? '在线' : '离线'}
             </span>
@@ -132,7 +132,7 @@ export function DeviceOverview() {
               <div key={record.id} className="flex items-center justify-between px-1">
                 <div className="flex items-center">
                     <div className={`w-8 h-8 rounded-xl flex items-center justify-center mr-3 ${
-                        record.type === 'online' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-50 text-slate-400'
+                        record.type === 'online' ? 'bg-roastek-light text-roastek-secondary' : 'bg-slate-50 text-slate-400'
                     }`}>
                         {record.type === 'online' ? <SignalMedium className="w-4 h-4" /> : <SignalLow className="w-4 h-4" />}
                     </div>
@@ -186,7 +186,7 @@ export function DeviceOverview() {
 
         {/* Configs List */}
         <div className="flex items-center justify-between mb-4 px-1">
-          <h3 className="text-base font-bold text-slate-800 tracking-tight">组态信息</h3>
+          <h3 className="text-base font-bold text-slate-800 tracking-tight">设备监控</h3>
         </div>
 
         <div className="grid grid-cols-1 gap-4">
@@ -200,13 +200,13 @@ export function DeviceOverview() {
                 <LayoutTemplate className="w-6 h-6 text-[#5D1B22]" />
               </div>
               <div className="ml-4 flex-1">
-                <h4 className="font-bold text-slate-900 text-[15px] tracking-tight">组态UI</h4>
+                <h4 className="font-bold text-slate-900 text-[15px] tracking-tight">监控界面</h4>
               </div>
               <ChevronLeft className="w-5 h-5 text-slate-300 rotate-180 group-hover:text-rose-800 transition-colors" />
             </div>
           ) : (
             <div className="text-center py-12 bg-white rounded-3xl border border-dashed border-slate-300">
-              <p className="text-slate-500 font-medium text-sm">无组态</p>
+              <p className="text-slate-500 font-medium text-sm">无监控</p>
             </div>
           )}
         </div>
