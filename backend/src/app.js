@@ -615,7 +615,7 @@ export async function createApp(options = {}) {
     res.json({ config: ownedDevice.device.config || null });
   });
 
-  app.patch("/api/devices/:id/config", requireAuth, async (req, res) => {
+app.patch("/api/devices/:id/config", requireAuth, async (req, res) => {
     const ownedDevice = getOwnedDevice(req, res);
 
     if (!ownedDevice) {
@@ -623,20 +623,26 @@ export async function createApp(options = {}) {
     }
 
     if (!ownedDevice.device.config) {
-      res.status(404).json({ message: "当前设备无组态" });
+      res.status(404).json({ message: "当前设备无监控" });
       return;
     }
 
     const name = String(req.body?.name || "").trim();
+    const payload = req.body?.payload;
 
-    if (!name) {
-      res.status(400).json({ message: "组态名称不能为空" });
+    if (!name && payload === undefined) {
+      res.status(400).json({ message: "监控名称或payload至少提供一个" });
       return;
     }
 
     const nextDevices = structuredClone(devices);
     const nextDevice = nextDevices[ownedDevice.index];
-    nextDevice.config.name = name;
+    if (name) {
+      nextDevice.config.name = name;
+    }
+    if (payload !== undefined) {
+      nextDevice.config.payload = payload;
+    }
     nextDevice.updatedAt = nowIso();
     const persisted = await persistDevices(nextDevices, res);
 

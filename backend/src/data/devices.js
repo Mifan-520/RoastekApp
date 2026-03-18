@@ -1,4 +1,4 @@
-// Z字梯设备组态
+// Z字梯设备监控
 const zLadderPayload = {
   summary: [
     { id: "speed", label: "运行速度", value: "2.4", unit: "m/s", tone: "emerald" },
@@ -25,7 +25,7 @@ const zLadderPayload = {
   frequency: { current: 45, target: 50 },
 };
 
-// 生豆处理站组态
+// 生豆处理站监控
 const beanStationPayload = {
   summary: [
     { id: "temp", label: "处理温度", value: "28", unit: "C", tone: "emerald" },
@@ -54,12 +54,42 @@ const beanStationPayload = {
     { id: "destoner", name: "去石机", status: "online" },
     { id: "grader", name: "分级机", status: "offline" },
     { id: "dryer", name: "烘干机", status: "online" },
-    { id: "elevator", name: "提升机", status: "running" },
-    { id: "conveyor", name: "输送带", status: "running" },
+    { id: "elevator", name: "提升机", status: "online" },
+    { id: "conveyor", name: "输送带", status: "online" },
   ],
 };
 
-// 智能仓储组态
+// 三元催化设备监控
+const catalyticPayload = {
+  summary: [
+    { id: "temp-in", label: "入口温度", value: "320", unit: "C", tone: "amber" },
+    { id: "temp-out", label: "出口温度", value: "180", unit: "C", tone: "emerald" },
+    { id: "pressure", label: "系统压力", value: "0.8", unit: "MPa", tone: "emerald" },
+  ],
+  chart: {
+    title: "三元催化能效分布",
+    data: [
+      { label: "加热系统", value: 45, color: "#be123c" },
+      { label: "风机", value: 25, color: "#f97316" },
+      { label: "控制单元", value: 18, color: "#facc15" },
+      { label: "传感器", value: 12, color: "#16a34a" },
+    ],
+  },
+  controls: [
+    { id: "heater-c", label: "加热系统", description: "运行中", icon: "power", active: true, tone: "emerald" },
+    { id: "fan-c", label: "风机", description: "运行中", icon: "fan", active: true, tone: "emerald" },
+    { id: "pump-c", label: "循环泵", description: "运行中", icon: "gauge", active: true, tone: "amber" },
+  ],
+  powerOn: true,
+  // 倒计时配置（秒）
+  countdowns: [
+    { id: "preheat", label: "预热倒计时", value: 300, editable: true },
+    { id: "cycle", label: "周期倒计时", value: 1800, editable: true },
+    { id: "cooldown", label: "冷却倒计时", value: 600, editable: true },
+  ],
+};
+
+// 智能仓储监控
 const warehousePayload = {
   summary: [
     { id: "capacity", label: "库存容量", value: "78", unit: "%", tone: "amber" },
@@ -100,12 +130,12 @@ const warehousePayload = {
 export const seedDevices = [
   {
     id: "dev-zladder-001",
-    claimCode: "ZLADDER01",
+    claimCode: "ZLADDER0",
     defaultName: "Z字梯",
     defaultType: "输送设备",
     defaultLocation: "福州三喜燕",
     defaultAddress: "福州三喜燕",
-    defaultConfigName: "Z字梯组态",
+    defaultConfigName: "Z字梯监控",
     status: "offline",
     lastActive: "2026-03-17T08:30:00+08:00",
     lastSeenAt: "2026-03-17T08:30:00+08:00",
@@ -123,7 +153,7 @@ export const seedDevices = [
     alarms: [],
     config: {
       id: "config-zladder",
-      name: "Z字梯组态",
+      name: "Z字梯监控",
       payload: zLadderPayload,
     },
   },
@@ -134,7 +164,7 @@ export const seedDevices = [
     defaultType: "处理设备",
     defaultLocation: "福州三喜燕",
     defaultAddress: "福州三喜燕",
-    defaultConfigName: "生豆处理站组态",
+    defaultConfigName: "生豆处理站监控",
     status: "online",
     lastActive: "2026-03-17T09:08:00+08:00",
     lastSeenAt: "2026-03-17T09:08:00+08:00",
@@ -165,7 +195,7 @@ export const seedDevices = [
     ],
     config: {
       id: "config-bean",
-      name: "生豆处理站组态",
+      name: "生豆处理站监控",
       payload: beanStationPayload,
     },
   },
@@ -176,7 +206,7 @@ export const seedDevices = [
     defaultType: "仓储设备",
     defaultLocation: "福州三喜燕",
     defaultAddress: "福州三喜燕",
-    defaultConfigName: "智能仓储组态",
+    defaultConfigName: "智能仓储监控",
     status: "online",
     lastActive: "2026-03-17T09:05:00+08:00",
     lastSeenAt: "2026-03-17T09:05:00+08:00",
@@ -214,8 +244,136 @@ export const seedDevices = [
     ],
     config: {
       id: "config-warehouse",
-      name: "智能仓储组态",
+      name: "智能仓储监控",
       payload: warehousePayload,
     },
+  },
+  {
+    id: "dev-catalytic-001",
+    claimCode: "CATALYT1",
+    defaultName: "三元催化",
+    defaultType: "催化设备",
+    defaultLocation: "福州三喜燕",
+    defaultAddress: "福州三喜燕",
+    defaultConfigName: "三元催化监控",
+    status: "online",
+    lastActive: "2026-03-18T10:00:00+08:00",
+    lastSeenAt: "2026-03-18T10:00:00+08:00",
+    createdAt: "2026-03-18T08:00:00+08:00",
+    updatedAt: "2026-03-18T10:00:00+08:00",
+    boundAt: "2026-03-18T08:30:00+08:00",
+    ownerId: "user-admin",
+    name: "三元催化",
+    type: "催化设备",
+    location: "福州三喜燕",
+    address: "福州三喜燕",
+    connectionHistory: [
+      { id: "conn-cat-1", type: "online", time: "2026-03-18T10:00:00+08:00", label: "设备上线" },
+    ],
+    alarms: [],
+    config: {
+      id: "config-catalytic",
+      name: "三元催化监控",
+      payload: catalyticPayload,
+    },
+  },
+  // 新增未绑定设备（可被用户认领）
+  {
+    id: "dev-new-001",
+    claimCode: "5ABH3YT2",
+    defaultName: "新设备",
+    defaultType: "待定",
+    defaultLocation: "",
+    defaultAddress: "",
+    defaultConfigName: "默认监控",
+    status: "offline",
+    createdAt: "2026-03-18T12:00:00+08:00",
+    updatedAt: "2026-03-18T12:00:00+08:00",
+    alarms: [],
+    config: null,
+  },
+  {
+    id: "dev-new-002",
+    claimCode: "RHQLE9U1",
+    defaultName: "新设备",
+    defaultType: "待定",
+    defaultLocation: "",
+    defaultAddress: "",
+    defaultConfigName: "默认监控",
+    status: "offline",
+    createdAt: "2026-03-18T12:00:00+08:00",
+    updatedAt: "2026-03-18T12:00:00+08:00",
+    alarms: [],
+    config: null,
+  },
+  {
+    id: "dev-new-003",
+    claimCode: "8LB0AUVI",
+    defaultName: "新设备",
+    defaultType: "待定",
+    defaultLocation: "",
+    defaultAddress: "",
+    defaultConfigName: "默认监控",
+    status: "offline",
+    createdAt: "2026-03-18T12:00:00+08:00",
+    updatedAt: "2026-03-18T12:00:00+08:00",
+    alarms: [],
+    config: null,
+  },
+  {
+    id: "dev-new-004",
+    claimCode: "NHBEPHDE",
+    defaultName: "新设备",
+    defaultType: "待定",
+    defaultLocation: "",
+    defaultAddress: "",
+    defaultConfigName: "默认监控",
+    status: "offline",
+    createdAt: "2026-03-18T12:00:00+08:00",
+    updatedAt: "2026-03-18T12:00:00+08:00",
+    alarms: [],
+    config: null,
+  },
+  {
+    id: "dev-new-005",
+    claimCode: "PC92P4X6",
+    defaultName: "新设备",
+    defaultType: "待定",
+    defaultLocation: "",
+    defaultAddress: "",
+    defaultConfigName: "默认监控",
+    status: "offline",
+    createdAt: "2026-03-18T12:00:00+08:00",
+    updatedAt: "2026-03-18T12:00:00+08:00",
+    alarms: [],
+    config: null,
+  },
+  {
+    id: "dev-new-006",
+    claimCode: "7RDN32SP",
+    defaultName: "新设备",
+    defaultType: "待定",
+    defaultLocation: "",
+    defaultAddress: "",
+    defaultConfigName: "默认监控",
+    status: "offline",
+    createdAt: "2026-03-18T12:00:00+08:00",
+    updatedAt: "2026-03-18T12:00:00+08:00",
+    alarms: [],
+    config: null,
+  },
+  {
+    id: "dev-new-007",
+    claimCode: "NWK8EG63",
+    defaultName: "新设备",
+    defaultType: "待定",
+    defaultLocation: "",
+    defaultAddress: "",
+    defaultConfigName: "默认监控",
+    status: "offline",
+    createdAt: "2026-03-18T12:00:00+08:00",
+    updatedAt: "2026-03-18T12:00:00+08:00",
+    alarms: [],
+    config: null,
   },
 ];
