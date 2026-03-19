@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 import pg from "pg";
 import { config } from "./config.js";
 import { seedDevices } from "./data/devices.js";
@@ -105,10 +106,104 @@ function isValidGroupArray(payload) {
   ));
 }
 
+function isPlainObject(value) {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+/**
+ * Recursively fills missing fields from the seed value into the persisted value.
+ * Existing persisted fields are preserved and never overwritten.
+ *
+ * Merge strategy:
+ * - `undefined` persisted value: clone seed value
+ * - both plain objects: recurse by key, only fill missing keys
+ * - all other types: keep persisted value
+ *
+ * @param {unknown} persistedValue
+ * @param {unknown} seedValue
+ * @returns {unknown}
+ */
+function mergeMissingFields(persistedValue, seedValue) {
+  if (persistedValue === undefined) {
+    return structuredClone(seedValue);
+  }
+
+  if (isPlainObject(persistedValue) && isPlainObject(seedValue)) {
+    const merged = structuredClone(persistedValue);
+
+    for (const [key, seedFieldValue] of Object.entries(seedValue)) {
+      if (!(key in merged)) {
+        merged[key] = structuredClone(seedFieldValue);
+        continue;
+      }
+
+      merged[key] = mergeMissingFields(merged[key], seedFieldValue);
+    }
+
+    return merged;
+  }
+
+  return persistedValue;
+}
+
+function getDeviceIdentity(device) {
+  return device?.id || device?.claimCode || null;
+}
+
+export function syncSeedDevices({ persistedDevices, seedDevices: nextSeedDevices }) {
+  if (!Array.isArray(persistedDevices)) {
+    return structuredClone(Array.isArray(nextSeedDevices) ? nextSeedDevices : []);
+  }
+
+  if (!Array.isArray(nextSeedDevices)) {
+    return structuredClone(persistedDevices);
+  }
+
+  const mergedDevices = [];
+  const persistedByIdentity = new Map();
+
+  for (const persistedDevice of persistedDevices) {
+    const identity = getDeviceIdentity(persistedDevice);
+
+    if (identity) {
+      persistedByIdentity.set(identity, persistedDevice);
+    } else {
+      console.warn("[Storage] Skipping persisted device without identity during seed sync");
+    }
+  }
+
+  for (const seedDevice of nextSeedDevices) {
+    const identity = getDeviceIdentity(seedDevice);
+
+    if (!identity) {
+      console.warn("[Storage] Skipping seed device without identity during seed sync");
+      continue;
+    }
+
+    const persistedDevice = persistedByIdentity.get(identity);
+
+    if (!persistedDevice) {
+      mergedDevices.push(structuredClone(seedDevice));
+      continue;
+    }
+
+    mergedDevices.push(mergeMissingFields(persistedDevice, seedDevice));
+    persistedByIdentity.delete(identity);
+  }
+
+  for (const remainingDevice of persistedByIdentity.values()) {
+    mergedDevices.push(structuredClone(remainingDevice));
+  }
+
+  return mergedDevices;
+}
+
 async function initializePostgresStorage() {
   const client = await connectWithRetry();
 
   try {
+    await client.query("BEGIN");
+
     await client.query(`
       CREATE TABLE IF NOT EXISTS app_state (
         state_key TEXT PRIMARY KEY,
@@ -124,7 +219,10 @@ async function initializePostgresStorage() {
 
     if (existing.rowCount === 0) {
       const fromLegacyFile = getSeedDevicesFromLegacyFile();
-      const initialDevices = structuredClone(fromLegacyFile || seedDevices);
+      const initialDevices = syncSeedDevices({
+        persistedDevices: Array.isArray(fromLegacyFile) ? fromLegacyFile : [],
+        seedDevices,
+      });
 
       await client.query(
         `
@@ -137,6 +235,30 @@ async function initializePostgresStorage() {
       console.log(
         `[Storage] PostgreSQL initialized with ${fromLegacyFile ? "legacy JSON" : "seed"} data (${initialDevices.length} devices)`
       );
+    } else {
+      const currentDevices = existing.rows[0]?.payload;
+
+      if (!Array.isArray(currentDevices)) {
+        console.error("[Storage] PostgreSQL devices payload is invalid, skipping seed sync");
+      } else {
+        const syncedDevices = syncSeedDevices({
+          persistedDevices: currentDevices,
+          seedDevices,
+        });
+
+        if (!isDeepStrictEqual(syncedDevices, currentDevices)) {
+          await client.query(
+            `
+            UPDATE app_state
+            SET payload = $2::jsonb, updated_at = NOW()
+            WHERE state_key = $1
+          `,
+            ["devices", JSON.stringify(syncedDevices)]
+          );
+
+          console.log(`[Storage] Synced seed devices into PostgreSQL (${syncedDevices.length} devices)`);
+        }
+      }
     }
 
     const existingUsers = await client.query(
@@ -174,6 +296,14 @@ async function initializePostgresStorage() {
 
       console.log("[Storage] PostgreSQL initialized with empty groups");
     }
+    await client.query("COMMIT");
+  } catch (error) {
+    try {
+      await client.query("ROLLBACK");
+    } catch (rollbackError) {
+      console.error("[Storage] PostgreSQL rollback failed:", rollbackError.message);
+    }
+    throw error;
   } finally {
     client.release();
   }
