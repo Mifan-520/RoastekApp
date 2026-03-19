@@ -4,22 +4,16 @@
  */
 import { useState } from "react";
 import { Power, ArrowUp, ArrowDown, Package } from "lucide-react";
+import type { HMIBin, HMIComponentProps } from "../types";
 
-interface Bin {
-  id: number;
-  weight: number;
-  maxWeight: number;
+interface WarehouseData {
+  summary?: Array<{ id: string; label: string; value: string; unit?: string; tone?: "rose" | "amber" }>;
+  controls?: Array<{ id: string; label: string; description: string; icon?: string; active: boolean; tone?: "rose" | "amber" }>;
+  powerOn?: boolean;
+  bins?: HMIBin[];
 }
 
-interface WarehouseHMIProps {
-  data: {
-    summary: Array<{ id: string; label: string; value: string; unit: string; tone?: string }>;
-    controls: Array<{ id: string; label: string; description: string; icon?: string; active: boolean; tone?: string }>;
-    powerOn?: boolean;
-    bins?: Bin[];
-  };
-  onControlChange?: (controlId: string, value: any) => void;
-}
+type WarehouseHMIProps = HMIComponentProps<WarehouseData>;
 
 export function WarehouseHMI({ data, onControlChange }: WarehouseHMIProps) {
   const [powerOn, setPowerOn] = useState(data.powerOn ?? true);
@@ -27,7 +21,7 @@ export function WarehouseHMI({ data, onControlChange }: WarehouseHMIProps) {
   const [quantity, setQuantity] = useState("");
   
   // 默认10个仓位数据
-  const bins: Bin[] = data.bins ?? [
+  const bins: HMIBin[] = data.bins ?? [
     { id: 1, weight: 125, maxWeight: 200 },
     { id: 2, weight: 80, maxWeight: 200 },
     { id: 3, weight: 200, maxWeight: 200 },

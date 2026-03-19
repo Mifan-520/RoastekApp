@@ -13,20 +13,16 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import { Flame, Timer, Play, Square, Thermometer, Pencil, Check, X } from "lucide-react";
+import type { HMIComponentProps, HMIControlItem, ModeParams } from "../types";
 
-// 模式参数类型
-interface ModeParams {
-  fireMinutes: number;   // 点火倒计时（分钟）
-  closeMinutes: number;  // 关机倒计时（分钟）
+interface CatalyticConverterData {
+  modes?: ModeParams[];
+  temperature?: number;
+  powerOn?: boolean;
+  controls?: HMIControlItem[];
 }
 
-interface CatalyticConverterHMIProps {
-  data: {
-    modes?: ModeParams[];
-    temperature?: number;
-  };
-  onControlChange?: (controlId: string, value: any) => void;
-}
+type CatalyticConverterHMIProps = HMIComponentProps<CatalyticConverterData>;
 
 // 默认四模式参数
 const DEFAULT_MODES: ModeParams[] = [
@@ -74,34 +70,71 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
   
   // 温度
   const [temperature, setTemperature] = useState(data.temperature ?? 0);
+
+  // 电源状态
+  const [powerOn, setPowerOn] = useState<boolean>(
+    () => data.powerOn ?? data.controls?.find((control) => control.id === "power")?.active ?? false,
+  );
   
   // 编辑状态
   const [editingMode, setEditingMode] = useState<number | null>(null);
   const [editFireMinutes, setEditFireMinutes] = useState(5);
   const [editCloseMinutes, setEditCloseMinutes] = useState(3);
 
+  // 当外部温度变化时同步更新
+  useEffect(() => {
+    setTemperature(data.temperature ?? 0);
+  }, [data.temperature]);
+
+  // 当外部电源状态变化时同步更新
+  useEffect(() => {
+    setPowerOn(data.powerOn ?? data.controls?.find((control) => control.id === "power")?.active ?? false);
+  }, [data.powerOn, data.controls]);
+
   // 获取当前模式参数
   const currentParams = modeParams[currentMode];
+
+  // 电源控制
+  const setPowerState = useCallback((nextPowerOn: boolean) => {
+    setPowerOn(nextPowerOn);
+    onControlChange?.("power", nextPowerOn);
+  }, [onControlChange]);
 
   // 启动倒计时
   const handleStart = useCallback(() => {
     const fireSec = currentParams.fireMinutes * 60;
     const closeSec = currentParams.closeMinutes * 60;
+
+    if (!powerOn) {
+      setPowerState(true);
+    }
     
     setRestSeconds(fireSec);
     setNextCloseSeconds(closeSec);
     setCountMode(1); // 点火模式
     
     onControlChange?.(`mode-${currentMode + 1}-start`, { fireSec, closeSec });
-  }, [currentParams, currentMode, onControlChange]);
+  }, [currentParams, currentMode, onControlChange, powerOn, setPowerState]);
 
   // 停止倒计时
   const handleStop = useCallback(() => {
     setCountMode(0);
     setRestSeconds(0);
+
+    if (powerOn) {
+      setPowerState(false);
+    }
     
     onControlChange?.(`mode-${currentMode + 1}-stop`, true);
-  }, [currentMode, onControlChange]);
+  }, [currentMode, onControlChange, powerOn, setPowerState]);
+
+  // 电源关闭时，强制停止倒计时
+  useEffect(() => {
+    if (!powerOn && countMode !== 0) {
+      setCountMode(0);
+      setRestSeconds(0);
+    }
+  }, [powerOn, countMode]);
 
   // 切换模式
   const handleModeChange = (modeIndex: number) => {

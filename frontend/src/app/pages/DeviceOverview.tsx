@@ -10,16 +10,20 @@ export function DeviceOverview() {
   const [device, setDevice] = useState<DeviceRecord | null>(null);
   const [config, setConfig] = useState<DeviceConfigRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [pageError, setPageError] = useState("");
   
   useEffect(() => {
     let active = true;
 
     async function loadDevice() {
       if (!id) {
+        setPageError("设备参数缺失");
+        setIsLoading(false);
         return;
       }
 
       setIsLoading(true);
+      setPageError("");
 
       try {
         const [nextDevice, nextConfig] = await Promise.all([getDevice(id), getDeviceConfig(id)]);
@@ -28,10 +32,18 @@ export function DeviceOverview() {
         }
         setDevice(nextDevice);
         setConfig(nextConfig);
-      } catch {
+      } catch (error) {
         if (!active) {
           return;
         }
+
+        const message = error instanceof Error ? error.message : "加载设备详情失败";
+        if (message.includes("未登录")) {
+          navigate("/login", { replace: true });
+          return;
+        }
+
+        setPageError(message);
         setDevice(null);
         setConfig(null);
       } finally {
@@ -45,7 +57,7 @@ export function DeviceOverview() {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, navigate]);
 
   const alarms = device?.alarms || [];
   const connectionHistory = device?.connectionHistory || [];
@@ -56,8 +68,14 @@ export function DeviceOverview() {
       await deleteAlarm(id, alarmId);
       const updated = await getDevice(id);
       setDevice(updated);
-    } catch (err) {
-      console.error("删除报警失败:", err);
+      setPageError("");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "删除报警失败";
+      if (message.includes("未登录")) {
+        navigate("/login", { replace: true });
+        return;
+      }
+      setPageError(message);
     }
   };
 
@@ -114,6 +132,14 @@ export function DeviceOverview() {
           </div>
         </div>
       </div>
+
+      {pageError ? (
+        <div className="px-6 -mt-14 relative z-30">
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {pageError}
+          </div>
+        </div>
+      ) : null}
 
       {/* Main Content (overlapping header) */}
       <div className="px-6 -mt-16 relative z-20 flex-1">

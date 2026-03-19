@@ -7,6 +7,7 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const [username, setUsername] = useState(() => getSession()?.user.displayName || "Admin User");
   const [roleLabel, setRoleLabel] = useState(() => getSession()?.user.roleLabel || "管理员");
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [tempName, setTempName] = useState("");
 
@@ -32,7 +33,12 @@ export function SettingsPage() {
         if (!active) return;
         if (error instanceof Error && error.message.includes("未登录")) {
           navigate("/login", { replace: true });
+          return;
         }
+        setFeedback({
+          type: "error",
+          text: error instanceof Error ? error.message : "获取账户信息失败",
+        });
       }
     }
 
@@ -49,6 +55,7 @@ export function SettingsPage() {
 
   const openEditModal = () => {
     setTempName(username);
+    setFeedback(null);
     setIsEditModalOpen(true);
   };
 
@@ -63,8 +70,12 @@ export function SettingsPage() {
           saveSession({ ...session, user });
         }
         setIsEditModalOpen(false);
+        setFeedback({ type: "success", text: "账户信息已更新" });
       } catch (error) {
-        alert(error instanceof Error ? error.message : "更新账户信息失败");
+        setFeedback({
+          type: "error",
+          text: error instanceof Error ? error.message : "更新账户信息失败",
+        });
       }
     }
   };
@@ -77,9 +88,12 @@ export function SettingsPage() {
          setOldPass("");
          setNewPass("");
          setConfirmPass("");
-         alert("密码修改成功");
+         setFeedback({ type: "success", text: "密码修改成功" });
        } catch (error) {
-         alert(error instanceof Error ? error.message : "密码修改失败");
+         setFeedback({
+           type: "error",
+           text: error instanceof Error ? error.message : "密码修改失败",
+         });
        }
     }
   };
@@ -87,11 +101,25 @@ export function SettingsPage() {
   return (
     <div className="flex flex-col min-h-full bg-slate-50 pb-10">
       <div className="bg-white px-6 pt-12 pb-4 shadow-sm sticky top-0 z-10 flex items-center">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 mr-2 rounded-full hover:bg-slate-100 transition-colors">
+        <button onClick={() => navigate("/devices")} className="p-2 -ml-2 mr-2 rounded-full hover:bg-slate-100 transition-colors">
           <ChevronLeft className="w-6 h-6 text-slate-700" />
         </button>
         <h2 className="text-xl font-bold text-slate-900">系统设置</h2>
       </div>
+
+      {feedback ? (
+        <div className="px-6 pt-4">
+          <div
+            className={`rounded-2xl px-4 py-3 text-sm border ${
+              feedback.type === "success"
+                ? "bg-emerald-50 border-emerald-100 text-emerald-700"
+                : "bg-amber-50 border-amber-100 text-amber-700"
+            }`}
+          >
+            {feedback.text}
+          </div>
+        </div>
+      ) : null}
       
       <div className="p-6 flex-1">
         {/* User Profile Summary - Clickable removed as per request */}

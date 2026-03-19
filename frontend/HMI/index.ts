@@ -6,13 +6,15 @@ export { ZLadderHMI } from "./Z字梯";
 export { BeanStationHMI } from "./生豆处理站";
 export { WarehouseHMI } from "./智能仓储";
 export { CatalyticConverterHMI } from "./三元催化";
+export type { HMIComponentProps } from "./types";
 
 import { ZLadderHMI } from "./Z字梯";
 import { BeanStationHMI } from "./生豆处理站";
 import { WarehouseHMI } from "./智能仓储";
 import { CatalyticConverterHMI } from "./三元催化";
+import type { HMIComponentProps } from "./types";
 
-export const hmiComponents: Record<string, React.ComponentType<any>> = {
+export const hmiComponents: Record<string, React.ComponentType<HMIComponentProps>> = {
   // 按配置ID映射
   "config-zladder": ZLadderHMI,
   "config-bean": BeanStationHMI,

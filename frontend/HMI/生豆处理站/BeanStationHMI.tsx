@@ -5,25 +5,19 @@
 import {
   Power, SprayCan, Filter, Layers, Flame, ArrowUp, Move, Wifi
 } from "lucide-react";
+import type { HMIComponentProps, HMIEquipment } from "../types";
 
-interface Equipment {
-  id: string;
-  name: string;
-  status: "online" | "offline";
+interface BeanStationData {
+  summary?: Array<{ id: string; label: string; value: string; unit?: string; tone?: "rose" | "amber" }>;
+  controls?: Array<{ id: string; label: string; description: string; icon?: string; active: boolean; tone?: "rose" | "amber" }>;
+  powerOn?: boolean;
+  equipment?: HMIEquipment[];
 }
 
-interface BeanStationHMIProps {
-  data: {
-    summary: Array<{ id: string; label: string; value: string; unit: string; tone?: string }>;
-    controls: Array<{ id: string; label: string; description: string; icon?: string; active: boolean; tone?: string }>;
-    powerOn?: boolean;
-    equipment?: Equipment[];
-  };
-  onControlChange?: (controlId: string, value: any) => void;
-}
+type BeanStationHMIProps = HMIComponentProps<BeanStationData>;
 
 // 默认设备列表
-const DEFAULT_EQUIPMENT: Equipment[] = [
+const DEFAULT_EQUIPMENT: HMIEquipment[] = [
   { id: "cleaner", name: "清洁机", status: "online" },
   { id: "stoneremover", name: "去石机", status: "online" },
   { id: "grader", name: "分级机", status: "online" },

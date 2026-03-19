@@ -3,16 +3,16 @@
  * 特点：电源开关 + 变频器频率仪表盘
  */
 import { Power, Zap } from "lucide-react";
+import type { HMIComponentProps, HMIFrequency } from "../types";
 
-interface ZLadderHMIProps {
-  data: {
-    summary: Array<{ id: string; label: string; value: string; unit: string; tone?: string }>;
-    controls: Array<{ id: string; label: string; description: string; icon?: string; active: boolean; tone?: string }>;
-    powerOn?: boolean;
-    frequency?: { current: number; target: number };
-  };
-  onControlChange?: (controlId: string, value: any) => void;
+interface ZLadderData {
+  summary?: Array<{ id: string; label: string; value: string; unit?: string; tone?: "rose" | "amber" }>;
+  controls?: Array<{ id: string; label: string; description: string; icon?: string; active: boolean; tone?: "rose" | "amber" }>;
+  powerOn?: boolean;
+  frequency?: HMIFrequency;
 }
+
+type ZLadderHMIProps = HMIComponentProps<ZLadderData>;
 
 export function ZLadderHMI({ data, onControlChange }: ZLadderHMIProps) {
   const powerOn = data.powerOn ?? data.controls?.find(c => c.id === "power")?.active ?? false;

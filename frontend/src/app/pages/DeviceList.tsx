@@ -214,14 +214,8 @@ export function DeviceList() {
     hasError: Boolean(listError),
   });
 
-  const handleDeleteAlarm = (e: React.MouseEvent, alarmId: string) => {
-    e.stopPropagation();
-    // User requested deletion ONLY in device details, so we remove this from here
-    // but I'll keep the logic commented or just remove the UI button later
-  };
-
   // Helper function to get icon based on alarm level
-  const getAlarmIcon = (level: string) => {
+  const getAlarmIcon = (_level: string) => {
     return <AlertCircle className="w-5 h-5 text-rose-500" />;
   };
 

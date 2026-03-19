@@ -41,10 +41,12 @@ function ControlIcon({ icon, active }: { icon?: DeviceUiControlItem["icon"]; act
 export function DeviceUI() {
   const { id, configId } = useParams();
   const navigate = useNavigate();
+  const backPath = id ? `/devices/${id}` : "/devices";
 
   const [device, setDevice] = useState<DeviceRecord | null>(null);
   const [config, setConfig] = useState<DeviceConfigRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [pageError, setPageError] = useState("");
 
   // useMemo 必须在所有条件返回之前调用，符合 React hooks 规则
   const isDesigned = !!config?.payload;
@@ -58,24 +60,37 @@ export function DeviceUI() {
 
     async function loadConfigScreen() {
       if (!id) {
+        setPageError("设备参数缺失");
+        setDevice(null);
+        setConfig(null);
+        setIsLoading(false);
         return;
       }
 
       setIsLoading(true);
+      setPageError("");
 
       try {
         const [nextDevice, nextConfig] = await Promise.all([getDevice(id), getDeviceConfig(id)]);
         const selectedConfig =
-          !configId || nextConfig.id === configId ? nextConfig : null;
+          nextConfig && (!configId || nextConfig.id === configId) ? nextConfig : null;
         if (!active) {
           return;
         }
         setDevice(nextDevice);
         setConfig(selectedConfig);
-      } catch {
+      } catch (error) {
         if (!active) {
           return;
         }
+
+        const message = error instanceof Error ? error.message : "加载监控界面失败";
+        if (message.includes("未登录")) {
+          navigate("/login", { replace: true });
+          return;
+        }
+
+        setPageError(message);
         setDevice(null);
         setConfig(null);
       } finally {
@@ -89,7 +104,7 @@ export function DeviceUI() {
     return () => {
       active = false;
     };
-  }, [configId, id]);
+  }, [configId, id, navigate]);
 
   if (isLoading) {
     return <div className="flex flex-col min-h-full items-center justify-center p-6 bg-[#0d0708] text-slate-100"><h2 className="text-xl font-bold">加载中...</h2></div>;
@@ -99,12 +114,12 @@ export function DeviceUI() {
     return (
       <div className="flex flex-col min-h-full bg-[#0d0708] text-slate-100 relative">
         <div className="flex items-center p-6 sticky top-0 bg-[#0d0708]/80 backdrop-blur-xl z-50 border-b border-rose-900/30">
-          <button onClick={() => navigate(-1)} className="p-2 -ml-2 mr-2 rounded-full hover:bg-rose-950/50 transition-colors text-rose-100">
+          <button onClick={() => navigate(backPath)} className="p-2 -ml-2 mr-2 rounded-full hover:bg-rose-950/50 transition-colors text-rose-100">
             <ChevronLeft className="w-6 h-6" />
           </button>
           <h1 className="text-[17px] font-bold tracking-tight text-white flex-1">监控界面</h1>
         </div>
-        <div className="flex-1 flex items-center justify-center p-6 text-slate-400 font-medium">加载失败，请重试</div>
+        <div className="flex-1 flex items-center justify-center p-6 text-slate-400 font-medium">{pageError || "加载失败，请重试"}</div>
       </div>
     );
   }
@@ -118,7 +133,7 @@ export function DeviceUI() {
         
         {/* Navigation Bar */}
         <div className="absolute top-0 left-0 right-0 flex items-center p-6 bg-[#0d0708]/80 backdrop-blur-xl z-50 border-b border-rose-900/30">
-          <button onClick={() => navigate(-1)} className="p-2 -ml-2 mr-2 rounded-full hover:bg-rose-950/50 transition-colors text-rose-100">
+          <button onClick={() => navigate(backPath)} className="p-2 -ml-2 mr-2 rounded-full hover:bg-rose-950/50 transition-colors text-rose-100">
             <ChevronLeft className="w-6 h-6" />
           </button>
           <h1 className="text-[17px] font-bold tracking-tight text-white flex-1">{config.name}</h1>
@@ -175,7 +190,12 @@ export function DeviceUI() {
       const updated = await updateDeviceConfigPayload(device.id, updatedPayload);
       setConfig(updated);
     } catch (error) {
-      console.error('Failed to persist control change:', error);
+      const message = error instanceof Error ? error.message : "控制更新失败";
+      if (message.includes("未登录")) {
+        navigate("/login", { replace: true });
+        return;
+      }
+      setPageError(message);
     }
   };
 
@@ -185,11 +205,18 @@ export function DeviceUI() {
       <div className="flex flex-col min-h-full bg-[#0d0708] text-slate-100 relative">
         {/* Header */}
         <div className="flex items-center p-6 sticky top-0 bg-[#0d0708]/80 backdrop-blur-xl z-50 border-b border-rose-900/30">
-          <button onClick={() => navigate(-1)} className="p-2 -ml-2 mr-2 rounded-full hover:bg-rose-950/50 transition-colors text-rose-100">
+          <button onClick={() => navigate(backPath)} className="p-2 -ml-2 mr-2 rounded-full hover:bg-rose-950/50 transition-colors text-rose-100">
             <ChevronLeft className="w-6 h-6" />
           </button>
           <h1 className="text-[17px] font-bold tracking-tight text-white flex-1">{config.name}</h1>
         </div>
+        {pageError ? (
+          <div className="px-6 pt-4">
+            <div className="rounded-2xl border border-amber-900/50 bg-amber-600/10 px-4 py-3 text-sm text-amber-100">
+              {pageError}
+            </div>
+          </div>
+        ) : null}
         <HMIComponent data={config.payload} onControlChange={handleControlChange} />
       </div>
     );
@@ -199,11 +226,19 @@ export function DeviceUI() {
     <div className="flex flex-col min-h-full bg-[#0d0708] text-slate-100 relative">
       {/* Header */}
       <div className="flex items-center p-6 sticky top-0 bg-[#0d0708]/80 backdrop-blur-xl z-50 border-b border-rose-900/30">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 mr-2 rounded-full hover:bg-rose-950/50 transition-colors text-rose-100">
+        <button onClick={() => navigate(backPath)} className="p-2 -ml-2 mr-2 rounded-full hover:bg-rose-950/50 transition-colors text-rose-100">
           <ChevronLeft className="w-6 h-6" />
         </button>
         <h1 className="text-[17px] font-bold tracking-tight text-white flex-1">{config.name}</h1>
       </div>
+
+      {pageError ? (
+        <div className="px-6 pt-4">
+          <div className="rounded-2xl border border-amber-900/50 bg-amber-600/10 px-4 py-3 text-sm text-amber-100">
+            {pageError}
+          </div>
+        </div>
+      ) : null}
 
       <div className="p-6 pt-4 space-y-6 flex-1">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
