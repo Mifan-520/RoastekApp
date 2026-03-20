@@ -129,7 +129,7 @@ const warehousePayload = {
 
 export const seedDevices = [
   {
-    id: "dev-zladder-001",
+    id: "ZZ-001",
     claimCode: "ZLADDER0",
     defaultName: "Z字梯",
     defaultType: "输送设备",
@@ -152,13 +152,13 @@ export const seedDevices = [
     ],
     alarms: [],
     config: {
-      id: "config-zladder",
+      id: "config-zz",
       name: "Z字梯监控",
       payload: zLadderPayload,
     },
   },
   {
-    id: "dev-bean-001",
+    id: "SD-001",
     claimCode: "BEAN0001",
     defaultName: "生豆处理站",
     defaultType: "处理设备",
@@ -194,13 +194,13 @@ export const seedDevices = [
       },
     ],
     config: {
-      id: "config-bean",
+      id: "config-sd",
       name: "生豆处理站监控",
       payload: beanStationPayload,
     },
   },
   {
-    id: "dev-warehouse-001",
+    id: "ZN-001",
     claimCode: "WAREH001",
     defaultName: "智能仓储",
     defaultType: "仓储设备",
@@ -243,13 +243,13 @@ export const seedDevices = [
       },
     ],
     config: {
-      id: "config-warehouse",
+      id: "config-zn",
       name: "智能仓储监控",
       payload: warehousePayload,
     },
   },
   {
-    id: "dev-catalytic-001",
+    id: "SY-001",
     claimCode: "CATALYT1",
     defaultName: "三元催化",
     defaultType: "催化设备",
@@ -272,7 +272,7 @@ export const seedDevices = [
     ],
     alarms: [],
     config: {
-      id: "config-catalytic",
+      id: "config-sy",
       name: "三元催化监控",
       payload: catalyticPayload,
     },

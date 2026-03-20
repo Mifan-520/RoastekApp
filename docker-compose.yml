@@ -31,7 +31,6 @@ services:
       DB_POOL_MAX: ${DB_POOL_MAX:-10}
       DB_CONNECT_RETRIES: ${DB_CONNECT_RETRIES:-20}
       DB_CONNECT_RETRY_DELAY_MS: ${DB_CONNECT_RETRY_DELAY_MS:-1000}
-      LEGACY_DEVICES_FILE: /app/data/devices.json
       MQTT_ENABLED: ${MQTT_ENABLED:-false}
       MQTT_HOST: ${MQTT_HOST:-host.docker.internal}
       MQTT_PORT: ${MQTT_PORT:-1883}
@@ -42,8 +41,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    volumes:
-      - roastek-data:/app/data:ro
     healthcheck:
       test:
         [
@@ -73,4 +70,3 @@ services:
 
 volumes:
   roastek-pg-data:
-  roastek-data:
