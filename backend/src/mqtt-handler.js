@@ -14,7 +14,7 @@ import { saveDevices, loadDevices } from "./storage.js";
  * @param {Object} telemetry - Incoming telemetry data
  * @returns {Object} - Updated config.payload
  */
-function mapTelemetryToPayload(device, telemetry) {
+export function mapTelemetryToPayload(device, telemetry) {
   const deviceType = device.type;
   const currentPayload = device.config?.payload || {};
   
@@ -25,6 +25,7 @@ function mapTelemetryToPayload(device, telemetry) {
   
   switch (deviceType) {
     case "三元催化":
+    case "催化设备":
       return {
         ...currentPayload,
         ...commonUpdate,
@@ -44,6 +45,7 @@ function mapTelemetryToPayload(device, telemetry) {
       };
       
     case "智能仓储":
+    case "仓储设备":
       return {
         ...currentPayload,
         ...commonUpdate,
@@ -61,6 +63,7 @@ function mapTelemetryToPayload(device, telemetry) {
       };
       
     case "生豆处理站":
+    case "处理设备":
       return {
         ...currentPayload,
         ...commonUpdate,
@@ -80,6 +83,7 @@ function mapTelemetryToPayload(device, telemetry) {
       };
       
     case "Z字梯":
+    case "输送设备":
       return {
         ...currentPayload,
         ...commonUpdate,
