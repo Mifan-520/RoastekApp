@@ -31,8 +31,8 @@ services:
       DB_POOL_MAX: ${DB_POOL_MAX:-10}
       DB_CONNECT_RETRIES: ${DB_CONNECT_RETRIES:-20}
       DB_CONNECT_RETRY_DELAY_MS: ${DB_CONNECT_RETRY_DELAY_MS:-1000}
-      MQTT_ENABLED: ${MQTT_ENABLED:-false}
-      MQTT_HOST: ${MQTT_HOST:-host.docker.internal}
+      MQTT_ENABLED: ${MQTT_ENABLED:-true}
+      MQTT_HOST: ${MQTT_HOST:-8.136.109.228}
       MQTT_PORT: ${MQTT_PORT:-1883}
       MQTT_USERNAME: ${MQTT_USERNAME:-}
       MQTT_PASSWORD: ${MQTT_PASSWORD:-}
@@ -59,7 +59,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_BASE_URL: /api
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
     container_name: roastek-frontend
     restart: unless-stopped
     depends_on:
