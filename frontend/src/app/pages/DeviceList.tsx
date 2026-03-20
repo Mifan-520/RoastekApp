@@ -1,11 +1,12 @@
 import { useNavigate } from "react-router";
 import { Settings, Server, Plus, X, Check, ArchiveX, Edit2, AlertTriangle, Info, AlertCircle, Trash2, User } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { claimDevice, deleteDevice, getDevices, updateDevice, type DeviceRecord } from "../services/devices";
 import { createGroup, deleteGroup, getGroups, updateGroup, type DeviceGroupRecord } from "../services/groups";
 import { formatAbsoluteTime } from "../utils/date";
 import { getVisibleDeviceAlarms } from "../utils/device-alarms";
 import { getDeviceStatsSummary } from "../utils/device-stats.js";
+import { useAutoRefresh, useVisibilityRefresh } from "../hooks/useAutoRefresh";
 
 export function DeviceList() {
   const navigate = useNavigate();
@@ -33,47 +34,39 @@ export function DeviceList() {
   const [deviceFormError, setDeviceFormError] = useState("");
   const [isDeviceSubmitting, setIsDeviceSubmitting] = useState(false);
 
-  useEffect(() => {
-    let active = true;
+  // 自动刷新设备列表和分组数据
+  const refreshData = async () => {
+    setIsDevicesLoading(true);
+    setListError("");
 
-    async function loadDeviceList() {
-      setIsDevicesLoading(true);
-      setListError("");
+    try {
+      const [nextDevices, nextGroups] = await Promise.all([getDevices(), getGroups()]);
+      setDevices(nextDevices);
+      setGroups(nextGroups);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "加载设备失败";
+      setListError(message);
 
-      try {
-        const [nextDevices, nextGroups] = await Promise.all([getDevices(), getGroups()]);
-
-        if (!active) {
-          return;
-        }
-
-        setDevices(nextDevices);
-        setGroups(nextGroups);
-      } catch (error) {
-        if (!active) {
-          return;
-        }
-
-        const message = error instanceof Error ? error.message : "加载设备失败";
-        setListError(message);
-
-        if (message.includes("未登录")) {
-          navigate("/login", { replace: true });
-        }
-      } finally {
-        if (active) {
-          setHasResolvedInitialDeviceLoad(true);
-          setIsDevicesLoading(false);
-        }
+      if (message.includes("未登录")) {
+        navigate("/login", { replace: true });
       }
+    } finally {
+      setHasResolvedInitialDeviceLoad(true);
+      setIsDevicesLoading(false);
     }
+  };
 
-    loadDeviceList();
+  useAutoRefresh(refreshData, [], {
+    interval: 5000,  // 每 5 秒刷新一次
+    enabled: true,
+    onError: (error) => {
+      console.error("设备列表刷新失败:", error);
+    },
+  });
 
-    return () => {
-      active = false;
-    };
-  }, [navigate]);
+  useVisibilityRefresh(() => {
+    void refreshData();
+  });
 
   const openAddDeviceModal = () => {
     setEditingDeviceId(null);

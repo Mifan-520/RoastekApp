@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from "react-router";
 import { ChevronLeft, Fan, Gauge, LayoutTemplate, Power } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import {
   getDevice,
@@ -12,6 +12,7 @@ import {
   type DeviceUiPayload,
 } from "../services/devices";
 import { getHMIComponent } from "../../../HMI";
+import { useAutoRefresh, useVisibilityRefresh } from "../hooks/useAutoRefresh";
 
 const STYLED_COLORS = ["#be123c", "#f43f5e", "#ffe4e6"];
 
@@ -55,56 +56,51 @@ export function DeviceUI() {
     [config?.payload?.chart?.data],
   );
 
-  useEffect(() => {
-    let active = true;
+  // 自动刷新设备和配置数据
+  const refreshData = async () => {
+    if (!id) {
+      setPageError("设备参数缺失");
+      setDevice(null);
+      setConfig(null);
+      setIsLoading(false);
+      return;
+    }
 
-    async function loadConfigScreen() {
-      if (!id) {
-        setPageError("设备参数缺失");
-        setDevice(null);
-        setConfig(null);
-        setIsLoading(false);
+    setIsLoading(true);
+    setPageError("");
+
+    try {
+      const [nextDevice, nextConfig] = await Promise.all([getDevice(id), getDeviceConfig(id)]);
+      const selectedConfig =
+        nextConfig && (!configId || nextConfig.id === configId) ? nextConfig : null;
+      setDevice(nextDevice);
+      setConfig(selectedConfig);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "加载监控界面失败";
+      if (message.includes("未登录")) {
+        navigate("/login", { replace: true });
         return;
       }
 
-      setIsLoading(true);
-      setPageError("");
-
-      try {
-        const [nextDevice, nextConfig] = await Promise.all([getDevice(id), getDeviceConfig(id)]);
-        const selectedConfig =
-          nextConfig && (!configId || nextConfig.id === configId) ? nextConfig : null;
-        if (!active) {
-          return;
-        }
-        setDevice(nextDevice);
-        setConfig(selectedConfig);
-      } catch (error) {
-        if (!active) {
-          return;
-        }
-
-        const message = error instanceof Error ? error.message : "加载监控界面失败";
-        if (message.includes("未登录")) {
-          navigate("/login", { replace: true });
-          return;
-        }
-
-        setPageError(message);
-        setDevice(null);
-        setConfig(null);
-      } finally {
-        if (active) {
-          setIsLoading(false);
-        }
-      }
+      setPageError(message);
+      setDevice(null);
+      setConfig(null);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    loadConfigScreen();
-    return () => {
-      active = false;
-    };
-  }, [configId, id, navigate]);
+  useAutoRefresh(refreshData, [configId, id], {
+    interval: 5000,  // 每 5 秒刷新一次
+    enabled: !!id,
+    onError: (error) => {
+      console.error("监控界面刷新失败:", error);
+    },
+  });
+
+  useVisibilityRefresh(() => {
+    void refreshData();
+  });
 
   if (isLoading) {
     return <div className="flex flex-col min-h-full items-center justify-center p-6 bg-[#0d0708] text-slate-100"><h2 className="text-xl font-bold">加载中...</h2></div>;

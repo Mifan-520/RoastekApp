@@ -1,8 +1,9 @@
 import { useNavigate, useParams } from "react-router";
 import { ChevronLeft, Activity, Droplet, FileText, Power, Zap, Settings, AlertTriangle, AlertCircle, Trash2, Clock, Smartphone, SignalMedium, SignalLow, LayoutTemplate } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { getDevice, getDeviceConfig, deleteAlarm, type DeviceRecord, type DeviceConfigRecord } from "../services/devices";
 import { formatAbsoluteTime } from "../utils/date";
+import { useAutoRefresh, useVisibilityRefresh } from "../hooks/useAutoRefresh";
 
 export function DeviceOverview() {
   const { id } = useParams();
@@ -11,53 +12,48 @@ export function DeviceOverview() {
   const [config, setConfig] = useState<DeviceConfigRecord | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [pageError, setPageError] = useState("");
-  
-  useEffect(() => {
-    let active = true;
 
-    async function loadDevice() {
-      if (!id) {
-        setPageError("设备参数缺失");
-        setIsLoading(false);
+  // 自动刷新设备详情数据
+  const refreshData = async () => {
+    if (!id) {
+      setPageError("设备参数缺失");
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setPageError("");
+
+    try {
+      const [nextDevice, nextConfig] = await Promise.all([getDevice(id), getDeviceConfig(id)]);
+      setDevice(nextDevice);
+      setConfig(nextConfig);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "加载设备详情失败";
+      if (message.includes("未登录")) {
+        navigate("/login", { replace: true });
         return;
       }
 
-      setIsLoading(true);
-      setPageError("");
-
-      try {
-        const [nextDevice, nextConfig] = await Promise.all([getDevice(id), getDeviceConfig(id)]);
-        if (!active) {
-          return;
-        }
-        setDevice(nextDevice);
-        setConfig(nextConfig);
-      } catch (error) {
-        if (!active) {
-          return;
-        }
-
-        const message = error instanceof Error ? error.message : "加载设备详情失败";
-        if (message.includes("未登录")) {
-          navigate("/login", { replace: true });
-          return;
-        }
-
-        setPageError(message);
-        setDevice(null);
-        setConfig(null);
-      } finally {
-        if (active) {
-          setIsLoading(false);
-        }
-      }
+      setPageError(message);
+      setDevice(null);
+      setConfig(null);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
-    loadDevice();
-    return () => {
-      active = false;
-    };
-  }, [id, navigate]);
+  useAutoRefresh(refreshData, [id], {
+    interval: 5000,  // 每 5 秒刷新一次
+    enabled: !!id,
+    onError: (error) => {
+      console.error("设备详情刷新失败:", error);
+    },
+  });
+
+  useVisibilityRefresh(() => {
+    void refreshData();
+  });
 
   const alarms = device?.alarms || [];
   const connectionHistory = device?.connectionHistory || [];
