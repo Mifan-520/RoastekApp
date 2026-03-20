@@ -19,11 +19,6 @@
 
 ## 项目路径
 
-### 单片机项目
-* ESP8266-12E-1: `D:\SSSSSSSSSSSSCCCCCCCCCCCCCMMMMMMMMMMMM\ESP32\vscode\esp8266-12E-1`
-* 硬件：ESP8266 + CJMCU-752 (SC16IS752 I2C转串口) + 4G DTU
-* 开发环境：PlatformIO + VSCode
-
 ## 物联网实现目标
 
 ### 完整数据流
@@ -142,7 +137,3 @@ Modbus设备 ──Modbus RTU──→ 边缘DTU ──MQTT/JSON──→ MQTT B
 | 单片机只懂Modbus，不想写JSON | **方案D** | DTU做轮询，单片机保持Modbus从机 |
 | 已有PLC，不想改程序 | **方案B** | DTU适配PLC协议 |
 | 云端要用现成的组态软件 | **方案C** | 云端软件直接通过虚拟串口访问设备 |
-
-**当前项目推荐：方案A**
-- ESP8266 读取传感器 → 封装JSON → 串口发给DTU → 云端直接解析
-- 控制下发：后端MQTT→DTU→单片机
