@@ -31,7 +31,7 @@
 
 ### 完整数据流
 ```
-单片机(ESP8266) → 4G DTU → MQTT Broker → 后端(Node.js) → PostgreSQL
+单片机 → 4G DTU → MQTT Broker → 后端(Node.js) → PostgreSQL
                                               ↓
                                         REST API/WebSocket
                                               ↓
@@ -62,7 +62,7 @@
 ```
 
 **特点**：
-- 单片机自己封装 JSON：`{"temp": 25.5, "status": "running"}`
+- 单片机自己封装 JSON
 - DTU 只是透明管道，字节原样转发
 - 云端收到 JSON 直接解析，无需协议转换
 
@@ -121,7 +121,7 @@ Modbus设备 ──Modbus RTU──→ 边缘DTU ──MQTT/JSON──→ MQTT B
 
 **特点**：
 - DTU 做主站，主动轮询 Modbus 设备寄存器
-- DTU 把寄存器数据封装成 JSON：`{"temp": 25.5, "humidity": 60}`
+- DTU 把寄存器数据封装成 JSON
 - 云端直接收 JSON，无需 Modbus 协议栈
 
 **适用场景**：Modbus 设备集中，希望云端简化，DTU 集中管理轮询
@@ -148,16 +148,6 @@ Modbus设备 ──Modbus RTU──→ 边缘DTU ──MQTT/JSON──→ MQTT B
 
 ---
 
-## 设备信息
-
-### 设备ID对照表
-
-| 设备ID | 设备名称 | 设备类型 | 绑定码 | MQTT主题 |
-|--------|----------|----------|--------|----------|
-| `SY-001` | 三元催化 | 催化设备 | `CATALYT1` | `devices/SY-001/telemetry` |
-| `ZN-001` | 智能仓储 | 仓储设备 | `WAREH001` | `devices/ZN-001/telemetry` |
-| `SD-001` | 生豆处理站 | 处理设备 | `BEAN0001` | `devices/SD-001/telemetry` |
-| `ZZ-001` | Z字梯 | 输送设备 | `ZLADDER01` | `devices/ZZ-001/telemetry` |
 
 ### MQTT配置（后端环境变量）
 
