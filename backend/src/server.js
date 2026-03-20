@@ -1,7 +1,7 @@
 import { createApp } from "./app.js";
 import { config } from "./config.js";
 import { closeStorage } from "./storage.js";
-import { connectMqtt, subscribeDevices, disconnectMqtt } from "./mqtt-client.js";
+import { connectMqtt, subscribeDevice, disconnectMqtt } from "./mqtt-client.js";
 import { handleMqttMessage, subscribeAllDevices } from "./mqtt-handler.js";
 
 async function start() {
@@ -11,17 +11,15 @@ async function start() {
     console.log(`Roastek backend listening on http://127.0.0.1:${config.port}`);
   });
 
-  // Initialize MQTT if enabled
   let mqttConnected = false;
   if (config.mqtt.enabled) {
     try {
       await connectMqtt(config.mqtt, handleMqttMessage);
       mqttConnected = true;
       
-      // Subscribe to all device telemetry topics
       const { loadDevices } = await import("./storage.js");
       const devices = await loadDevices();
-      subscribeAllDevices(subscribeDevices, devices);
+      subscribeAllDevices(subscribeDevice, devices);
       
       console.log("[MQTT] Integration enabled and connected");
     } catch (error) {
