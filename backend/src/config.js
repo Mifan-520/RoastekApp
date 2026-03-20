@@ -45,4 +45,13 @@ export const config = {
   dbConnectRetries: parsePositiveNumber(process.env.DB_CONNECT_RETRIES, 10),
   dbConnectRetryDelayMs: parsePositiveNumber(process.env.DB_CONNECT_RETRY_DELAY_MS, 1000),
   legacyDevicesFile: (process.env.LEGACY_DEVICES_FILE || "").trim() || null,
+  
+  // MQTT Configuration
+  mqtt: {
+    enabled: process.env.MQTT_ENABLED === "true" || process.env.MQTT_ENABLED === "1",
+    host: process.env.MQTT_HOST || "localhost",
+    port: parsePositiveNumber(process.env.MQTT_PORT, 1883),
+    username: process.env.MQTT_USERNAME || "",
+    password: process.env.MQTT_PASSWORD || "",
+  },
 };
