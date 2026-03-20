@@ -10,11 +10,10 @@ Read this file first if an AI or automation agent is deploying the app on a Linu
 
 ## Files to read in order
 
-1. `SERVER_AI_DEPLOYMENT.md`
-2. `DEPLOY.md`
-3. `docker-compose.yml`
-4. `frontend/nginx/default.conf`
-5. `.env.example`
+1. `SERVER_AI_DEPLOYMENT.md` (this file)
+2. `docker-compose.yml`
+3. `frontend/nginx/default.conf`
+4. `.env.example`
 
 ## First deployment on a Linux server
 
@@ -22,7 +21,7 @@ Read this file first if an AI or automation agent is deploying the app on a Linu
 2. Install Docker Engine and the Docker Compose plugin.
 3. Enter the repository root.
 4. Copy `.env.example` to `.env`.
-5. Set a strong `ADMIN_PASSWORD`.
+5. Set a strong `ADMIN_PASSWORD` (cannot be "admin" in production).
 6. Set `FRONTEND_ORIGIN` to the real public origin users will open.
 7. Optionally change `WEB_PORT` if `8088` is occupied.
 8. Run `bash scripts/server-up.sh`.
@@ -76,6 +75,13 @@ Then verify manually:
 
 ## Current architecture note
 
-- The root stack currently runs one `backend` container and one `frontend` container.
-- The backend persists data to `/app/data/devices.json` inside the container, backed by a Docker volume `roastek-data`.
-- Data survives container restarts and rebuilds. Suitable for internal testing and lightweight production use.
+- The root stack runs three containers: `postgres`, `backend`, and `frontend`.
+- The backend persists data to PostgreSQL (`roastek-postgres-data` volume).
+- Data survives container restarts and rebuilds.
+- On first startup, backend automatically syncs seed devices from `backend/src/data/devices.js` to PostgreSQL without overwriting existing user data.
+- If you previously used JSON file storage (`/app/data/devices.json`), the backend will auto-import legacy data once on first PostgreSQL boot.
+
+## Security features
+
+- The backend blocks unsafe `admin/admin` credentials in production mode (`NODE_ENV=production`).
+- If default credentials are detected, the server will refuse to start with a clear error message.
