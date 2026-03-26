@@ -69,10 +69,16 @@ function buildCatalyticControls(currentPayload, powerOn) {
 }
 
 function buildCatalyticSummary(temperature, currentMode, countMode, restSeconds) {
+  const countdownSummary = countMode === 1
+    ? { label: "点火剩余", value: String(restSeconds), unit: "s", tone: "amber" }
+    : countMode === 2
+      ? { label: "关机剩余", value: String(restSeconds), unit: "s", tone: "amber" }
+      : { label: "当前状态", value: "待机", tone: "rose" };
+
   return [
     { id: "temperature", label: "当前温度", value: String(temperature), unit: "C", tone: temperature >= 200 ? "amber" : "rose" },
     { id: "mode", label: "当前模式", value: `模式${currentMode}`, tone: "rose" },
-    { id: "countdown", label: countMode === 2 ? "关机剩余" : "点火剩余", value: String(restSeconds), unit: "s", tone: "amber" },
+    { id: "countdown", ...countdownSummary },
   ];
 }
 
@@ -132,7 +138,7 @@ export function mapTelemetryToPayload(device, telemetry) {
         const countMode = normalizeCountMode(telemetry.countMode ?? currentPayload.countMode);
         const restSeconds = Math.max(0, Math.round(toFiniteNumber(telemetry.restSeconds, toFiniteNumber(currentPayload.restSeconds, 0))));
         const modes = buildCatalyticModes(telemetry, currentPayload);
-        const powerOn = countMode !== 0 || restSeconds > 0;
+        const powerOn = countMode !== 0;
 
         return {
           ...restPayload,

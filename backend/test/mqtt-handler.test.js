@@ -114,6 +114,50 @@ test("maps telemetry when deviceType uses display names instead of type ids", ()
   assert.equal(liftPayload.operationMode, "manual");
 });
 
+test("treats catalytic device as idle when countMode is 0 even if restSeconds remains", () => {
+  const payload = mapTelemetryToPayload(
+    {
+      type: "三元催化",
+      config: {
+        payload: {
+          controls: [{ id: "power", active: true, label: "总电源", description: "运行中", icon: "power", tone: "rose" }],
+          modes: [
+            { fireMinutes: 10, closeMinutes: 3 },
+            { fireMinutes: 9.5, closeMinutes: 4 },
+            { fireMinutes: 9, closeMinutes: 4 },
+            { fireMinutes: 0.25, closeMinutes: 0.25 },
+          ],
+          currentMode: 1,
+          countMode: 0,
+          restSeconds: 260,
+        },
+      },
+    },
+    {
+      temperature: 13.9,
+      mode: 1,
+      countMode: 0,
+      restSeconds: 260,
+      m1f: 600,
+      m1c: 180,
+      m2f: 570,
+      m2c: 240,
+      m3f: 540,
+      m3c: 240,
+      m4f: 15,
+      m4c: 15,
+    }
+  );
+
+  assert.equal(payload.powerOn, false);
+  assert.equal(payload.controls?.[0]?.active, false);
+  assert.equal(payload.controls?.[0]?.description, "已停止");
+  assert.equal(payload.summary?.[2]?.label, "当前状态");
+  assert.equal(payload.summary?.[2]?.value, "待机");
+  assert.equal(payload.countdowns?.[0]?.value, 600);
+  assert.equal(payload.countdowns?.[1]?.value, 180);
+});
+
 test("handleMqttMessage syncs updated devices back to app memory", async () => {
   const initialDevices = [
     {
