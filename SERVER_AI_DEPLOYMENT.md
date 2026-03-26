@@ -111,6 +111,31 @@ bash scripts/server-update.sh
 - 再执行 `docker compose up --build -d`
 - 最后输出 `docker compose ps`
 
+## 本次同步修复上线说明
+
+这次需要同步到服务器的修复，核心是让 **MQTT telemetry → 后端内存状态 → API → HMI 页面** 使用同一份最新设备状态。
+
+涉及的本次改动重点：
+
+- 后端在收到 MQTT telemetry 后，会同时刷新存储层和 API 进程内存，避免“数据库已更新但 API 还在吐旧 payload”
+- 三元催化设备的 telemetry 映射已切换到 ESP32 实际上报字段：`temperature`、`mode`、`countMode`、`restSeconds`、`m1f..m4c`
+- 前端三元催化 HMI 已取消本地自跑倒计时和本地假状态，改为直接显示后端返回的真实 telemetry 映射结果
+
+如果服务器还没拉到这次代码，线上页面就仍可能出现以下旧现象：
+
+- 设备卡片活跃时间更新了，但 HMI 温度/模式/倒计时还是旧值
+- API 里同时混有旧 summary/controls/countdowns 和新 telemetry 字段
+- 页面本地倒计时与设备真实倒计时不一致
+
+因此，这次联调必须严格遵守下面顺序：
+
+1. 先把本机代码同步到 GitHub
+2. 再由用户在服务器执行 `bash scripts/server-update.sh`
+3. 用户明确回传“服务器已同步完成”
+4. 然后才开始打开服务器页面和调用线上 API 做联调
+
+在第 3 步之前，**不能把本地 Docker 重启视为服务器已更新**。
+
 ## 本地修改后的默认动作
 
 - 只要修改了影响本地运行态的代码、配置、容器相关脚本或部署文件，默认都要重启 Docker。
@@ -136,6 +161,18 @@ docker compose exec -T backend sh -lc "wget -qO- http://127.0.0.1:3001/healthz"
 - 管理员账号能登录
 - 前端通过 `/api` 访问后端正常
 - 设备数据能正常入库和显示
+
+### 本次同步修复的专项验证
+
+当服务器已经完成这次更新后，再用浏览器和 API 重点核对下面几项是否一致：
+
+- 设备列表卡片中的“活跃于”时间，要能跟随最新 telemetry 刷新
+- 三元催化 HMI 当前温度，要与 `/api/devices/:id` / `/api/devices/:id/config` 中的 `payload.temperature` 一致
+- HMI 当前模式，要与 `payload.currentMode` 一致
+- HMI 当前倒计时状态，要与 `payload.countMode`、`payload.restSeconds` 一致
+- HMI 模式参数，要与 `payload.modes` 一致
+
+如果需要按固定排障流程继续联调，顺序应为：**先确认服务器已同步完成 → 再打开服务器页面 → 必要时登录并读取 localStorage/token → 再直接调用线上 API 对比页面显示与返回值**。
 
 ## 域名与 HTTPS 建议
 

@@ -47,6 +47,10 @@ export interface DeviceUiPayload {
   modes?: Array<{ fireMinutes: number; closeMinutes: number }>;
   temperature?: number;
   powerOn?: boolean;
+  currentMode?: number;
+  countMode?: 0 | 1 | 2;
+  restSeconds?: number;
+  lastTelemetryAt?: string;
   equipment?: Array<{ id: string; name: string; status: "online" | "offline" }>;
   bins?: Array<{ id: number; weight: number; maxWeight: number }>;
   frequency?: { current: number; target: number };

@@ -52,6 +52,10 @@ export interface HMIDataShape {
   modes?: ModeParams[];
   temperature?: number;
   powerOn?: boolean;
+  currentMode?: number;
+  countMode?: 0 | 1 | 2;
+  restSeconds?: number;
+  lastTelemetryAt?: string;
   equipment?: HMIEquipment[];
   bins?: HMIBin[];
   frequency?: HMIFrequency;
