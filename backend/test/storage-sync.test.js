@@ -27,6 +27,19 @@ function runSeedSync(persistedDevices, seedDevices) {
   });
 }
 
+function runSeedSyncWithMigrations(persistedDevices, seedDevices) {
+  assert.equal(
+    typeof storage.syncSeedDevicesWithMigrations,
+    "function",
+    "storage.syncSeedDevicesWithMigrations should be implemented"
+  );
+
+  return storage.syncSeedDevicesWithMigrations({
+    persistedDevices,
+    seedDevices,
+  });
+}
+
 test("should merge seed devices without overwriting persisted values", () => {
   const persistedDevices = [
     createMockDevice({
@@ -152,4 +165,79 @@ test("should backfill missing seed fields", () => {
     powerOn: true,
     controls: [],
   });
+});
+
+test("should collapse legacy claimed devices into canonical seed ids by claim code", () => {
+  const persistedDevices = [
+    createMockDevice({
+      id: "SY-001",
+      claimCode: "CATALYT1",
+      updatedAt: "2026-03-20T00:00:00.000Z",
+      config: {
+        id: "config-sy",
+        payload: { temperature: 20 },
+      },
+    }),
+    createMockDevice({
+      id: "dev-catalytic-001",
+      claimCode: "CATALYT1",
+      name: "旧认领催化设备",
+      updatedAt: "2026-03-26T02:00:00.000Z",
+      lastSeenAt: "2026-03-26T02:00:00.000Z",
+      config: {
+        id: "config-catalytic",
+        payload: { temperature: 14.4, currentMode: 1 },
+      },
+    }),
+  ];
+
+  const seedDevices = [
+    createMockDevice({
+      id: "SY-001",
+      claimCode: "CATALYT1",
+      name: "三元催化",
+      config: {
+        id: "config-sy",
+        payload: { temperature: 0 },
+      },
+    }),
+  ];
+
+  const result = runSeedSyncWithMigrations(persistedDevices, seedDevices);
+
+  assert.equal(result.devices.length, 1);
+  assert.deepEqual(result.deviceIdMap, {
+    "dev-catalytic-001": "SY-001",
+  });
+  assert.equal(result.devices[0].id, "SY-001");
+  assert.equal(result.devices[0].name, "旧认领催化设备");
+  assert.equal(result.devices[0].config.id, "config-sy");
+  assert.deepEqual(result.devices[0].config.payload, { temperature: 14.4, currentMode: 1 });
+});
+
+test("should remap legacy group device ids to canonical seed ids", () => {
+  assert.equal(typeof storage.remapGroupDeviceIds, "function");
+
+  const groups = [
+    {
+      id: "group-1",
+      userId: "user-1",
+      name: "默认组",
+      deviceIds: ["dev-catalytic-001", "SY-001", "dev-bean-001"],
+    },
+  ];
+
+  const remapped = storage.remapGroupDeviceIds(groups, {
+    "dev-catalytic-001": "SY-001",
+    "dev-bean-001": "SD-001",
+  });
+
+  assert.deepEqual(remapped, [
+    {
+      id: "group-1",
+      userId: "user-1",
+      name: "默认组",
+      deviceIds: ["SY-001", "SD-001"],
+    },
+  ]);
 });

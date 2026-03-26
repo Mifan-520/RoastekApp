@@ -150,52 +150,140 @@ function getDeviceIdentity(device) {
   return device?.id || device?.claimCode || null;
 }
 
-export function syncSeedDevices({ persistedDevices, seedDevices: nextSeedDevices }) {
+function getClaimCode(device) {
+  return typeof device?.claimCode === "string" && device.claimCode.trim() ? device.claimCode.trim() : null;
+}
+
+function getTimestampValue(device) {
+  const raw = device?.updatedAt || device?.lastSeenAt || device?.lastActive || device?.createdAt;
+  const parsed = Number.isFinite(Date.parse(raw)) ? Date.parse(raw) : 0;
+  return parsed;
+}
+
+function selectPreferredPersistedDevice(matchingDevices) {
+  if (!Array.isArray(matchingDevices) || matchingDevices.length === 0) {
+    return null;
+  }
+
+  return [...matchingDevices].sort((left, right) => getTimestampValue(right) - getTimestampValue(left))[0];
+}
+
+function mergeDeviceIntoSeed(seedDevice, persistedDevice) {
+  if (!persistedDevice) {
+    return structuredClone(seedDevice);
+  }
+
+  const merged = mergeMissingFields(persistedDevice, seedDevice);
+  merged.id = seedDevice.id;
+  merged.claimCode = seedDevice.claimCode;
+
+  if (seedDevice.config?.id) {
+    merged.config = {
+      ...(merged.config ?? {}),
+      id: seedDevice.config.id,
+    };
+  }
+
+  return merged;
+}
+
+export function syncSeedDevicesWithMigrations({ persistedDevices, seedDevices: nextSeedDevices }) {
   if (!Array.isArray(persistedDevices)) {
-    return structuredClone(Array.isArray(nextSeedDevices) ? nextSeedDevices : []);
+    return {
+      devices: structuredClone(Array.isArray(nextSeedDevices) ? nextSeedDevices : []),
+      deviceIdMap: {},
+    };
   }
 
   if (!Array.isArray(nextSeedDevices)) {
-    return structuredClone(persistedDevices);
+    return {
+      devices: structuredClone(persistedDevices),
+      deviceIdMap: {},
+    };
   }
 
   const mergedDevices = [];
   const persistedByIdentity = new Map();
+  const persistedByClaimCode = new Map();
+  const deviceIdMap = {};
 
   for (const persistedDevice of persistedDevices) {
     const identity = getDeviceIdentity(persistedDevice);
+    const claimCode = getClaimCode(persistedDevice);
 
     if (identity) {
       persistedByIdentity.set(identity, persistedDevice);
     } else {
       console.warn("[Storage] Skipping persisted device without identity during seed sync");
     }
+
+    if (claimCode) {
+      const existing = persistedByClaimCode.get(claimCode) ?? [];
+      existing.push(persistedDevice);
+      persistedByClaimCode.set(claimCode, existing);
+    }
   }
 
   for (const seedDevice of nextSeedDevices) {
     const identity = getDeviceIdentity(seedDevice);
+    const claimCode = getClaimCode(seedDevice);
 
     if (!identity) {
       console.warn("[Storage] Skipping seed device without identity during seed sync");
       continue;
     }
 
-    const persistedDevice = persistedByIdentity.get(identity);
+    const matchingDevices = [
+      ...(persistedByIdentity.has(identity) ? [persistedByIdentity.get(identity)] : []),
+      ...((claimCode ? persistedByClaimCode.get(claimCode) : []) ?? []),
+    ].filter(Boolean);
+
+    const uniqueMatches = [...new Map(matchingDevices.map((device) => [device.id, device])).values()];
+    const persistedDevice = selectPreferredPersistedDevice(uniqueMatches);
 
     if (!persistedDevice) {
       mergedDevices.push(structuredClone(seedDevice));
       continue;
     }
 
-    mergedDevices.push(mergeMissingFields(persistedDevice, seedDevice));
-    persistedByIdentity.delete(identity);
+    mergedDevices.push(mergeDeviceIntoSeed(seedDevice, persistedDevice));
+
+    for (const matchedDevice of uniqueMatches) {
+      persistedByIdentity.delete(matchedDevice.id);
+      const matchedClaimCode = getClaimCode(matchedDevice);
+      if (matchedClaimCode) {
+        persistedByClaimCode.delete(matchedClaimCode);
+      }
+
+      if (matchedDevice.id !== seedDevice.id) {
+        deviceIdMap[matchedDevice.id] = seedDevice.id;
+      }
+    }
   }
 
   for (const remainingDevice of persistedByIdentity.values()) {
     mergedDevices.push(structuredClone(remainingDevice));
   }
 
-  return mergedDevices;
+  return { devices: mergedDevices, deviceIdMap };
+}
+
+export function syncSeedDevices({ persistedDevices, seedDevices: nextSeedDevices }) {
+  return syncSeedDevicesWithMigrations({
+    persistedDevices,
+    seedDevices: nextSeedDevices,
+  }).devices;
+}
+
+export function remapGroupDeviceIds(groups, deviceIdMap = {}) {
+  if (!Array.isArray(groups) || Object.keys(deviceIdMap).length === 0) {
+    return structuredClone(Array.isArray(groups) ? groups : []);
+  }
+
+  return groups.map((group) => ({
+    ...group,
+    deviceIds: [...new Set((group.deviceIds ?? []).map((deviceId) => deviceIdMap[deviceId] ?? deviceId))],
+  }));
 }
 
 async function initializePostgresStorage() {
@@ -216,13 +304,15 @@ async function initializePostgresStorage() {
       "SELECT payload FROM app_state WHERE state_key = $1",
       ["devices"]
     );
+    let deviceIdMap = {};
 
     if (existing.rowCount === 0) {
       const fromLegacyFile = getSeedDevicesFromLegacyFile();
-      const initialDevices = syncSeedDevices({
+      const { devices: initialDevices, deviceIdMap: initialDeviceIdMap } = syncSeedDevicesWithMigrations({
         persistedDevices: Array.isArray(fromLegacyFile) ? fromLegacyFile : [],
         seedDevices,
       });
+      deviceIdMap = initialDeviceIdMap;
 
       await client.query(
         `
@@ -241,10 +331,11 @@ async function initializePostgresStorage() {
       if (!Array.isArray(currentDevices)) {
         console.error("[Storage] PostgreSQL devices payload is invalid, skipping seed sync");
       } else {
-        const syncedDevices = syncSeedDevices({
+        const { devices: syncedDevices, deviceIdMap: nextDeviceIdMap } = syncSeedDevicesWithMigrations({
           persistedDevices: currentDevices,
           seedDevices,
         });
+        deviceIdMap = nextDeviceIdMap;
 
         if (!isDeepStrictEqual(syncedDevices, currentDevices)) {
           await client.query(
@@ -286,15 +377,35 @@ async function initializePostgresStorage() {
     );
 
     if (existingGroups.rowCount === 0) {
+      const initialGroups = remapGroupDeviceIds([], deviceIdMap);
       await client.query(
         `
         INSERT INTO app_state (state_key, payload, updated_at)
         VALUES ($1, $2::jsonb, NOW())
       `,
-        ["groups", JSON.stringify([])]
+        ["groups", JSON.stringify(initialGroups)]
       );
 
       console.log("[Storage] PostgreSQL initialized with empty groups");
+    } else {
+      const currentGroups = existingGroups.rows[0]?.payload;
+
+      if (isValidGroupArray(currentGroups)) {
+        const syncedGroups = remapGroupDeviceIds(currentGroups, deviceIdMap);
+
+        if (!isDeepStrictEqual(syncedGroups, currentGroups)) {
+          await client.query(
+            `
+            UPDATE app_state
+            SET payload = $2::jsonb, updated_at = NOW()
+            WHERE state_key = $1
+          `,
+            ["groups", JSON.stringify(syncedGroups)]
+          );
+
+          console.log("[Storage] Remapped legacy group device ids after seed sync");
+        }
+      }
     }
     await client.query("COMMIT");
   } catch (error) {
