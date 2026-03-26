@@ -146,6 +146,10 @@ export async function createApp(options = {}) {
     }
   }
 
+  app.locals.replaceDevices = (nextDevices) => {
+    devices = Array.isArray(nextDevices) ? nextDevices : devices;
+  };
+
   async function persistUsers(nextUsers, res) {
     try {
       await saveUsersFn(nextUsers);

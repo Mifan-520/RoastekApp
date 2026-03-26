@@ -8,6 +8,93 @@
 
 import { saveDevices, loadDevices } from "./storage.js";
 
+const DEFAULT_CATALYTIC_MODES = [
+  { fireMinutes: 5, closeMinutes: 3 },
+  { fireMinutes: 5, closeMinutes: 3 },
+  { fireMinutes: 5, closeMinutes: 3 },
+  { fireMinutes: 5, closeMinutes: 3 },
+];
+
+function toFiniteNumber(value, fallback = 0) {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : fallback;
+}
+
+function normalizeCountMode(value) {
+  return value === 1 || value === 2 ? value : 0;
+}
+
+function buildCatalyticModes(telemetry, currentPayload) {
+  const existingModes = Array.isArray(currentPayload.modes) ? currentPayload.modes : DEFAULT_CATALYTIC_MODES;
+
+  return [1, 2, 3, 4].map((modeIndex) => {
+    const currentMode = existingModes[modeIndex - 1] ?? DEFAULT_CATALYTIC_MODES[modeIndex - 1];
+    const fireSeconds = telemetry[`m${modeIndex}f`];
+    const closeSeconds = telemetry[`m${modeIndex}c`];
+
+    return {
+      fireMinutes: Number.isFinite(Number(fireSeconds)) ? Number(fireSeconds) / 60 : currentMode.fireMinutes,
+      closeMinutes: Number.isFinite(Number(closeSeconds)) ? Number(closeSeconds) / 60 : currentMode.closeMinutes,
+    };
+  });
+}
+
+function buildCatalyticControls(currentPayload, powerOn) {
+  const currentControls = Array.isArray(currentPayload.controls) ? currentPayload.controls : [];
+
+  if (currentControls.length === 0) {
+    return [
+      {
+        id: "power",
+        label: "总电源",
+        description: powerOn ? "运行中" : "已停止",
+        icon: "power",
+        active: powerOn,
+        tone: powerOn ? "rose" : "amber",
+      },
+    ];
+  }
+
+  return currentControls.map((control, index) => {
+    if (control.id === "power" || index === 0) {
+      return {
+        ...control,
+        active: powerOn,
+        description: powerOn ? "运行中" : "已停止",
+      };
+    }
+
+    return control;
+  });
+}
+
+function buildCatalyticSummary(temperature, currentMode, countMode, restSeconds) {
+  return [
+    { id: "temperature", label: "当前温度", value: String(temperature), unit: "C", tone: temperature >= 200 ? "amber" : "rose" },
+    { id: "mode", label: "当前模式", value: `模式${currentMode}`, tone: "rose" },
+    { id: "countdown", label: countMode === 2 ? "关机剩余" : "点火剩余", value: String(restSeconds), unit: "s", tone: "amber" },
+  ];
+}
+
+function buildCatalyticCountdowns(modes, currentMode, countMode, restSeconds) {
+  const activeMode = modes[currentMode - 1] ?? DEFAULT_CATALYTIC_MODES[0];
+
+  return [
+    {
+      id: "fire",
+      label: "点火倒计时",
+      value: countMode === 1 ? restSeconds : Math.round(activeMode.fireMinutes * 60),
+      editable: true,
+    },
+    {
+      id: "close",
+      label: "关机倒计时",
+      value: countMode === 2 ? restSeconds : Math.round(activeMode.closeMinutes * 60),
+      editable: true,
+    },
+  ];
+}
+
 /**
  * Map telemetry data to device config.payload based on device type
  * @param {Object} device - Device object from storage
@@ -26,23 +113,41 @@ export function mapTelemetryToPayload(device, telemetry) {
   switch (deviceType) {
     case "三元催化":
     case "催化设备":
-      return {
-        ...currentPayload,
-        ...commonUpdate,
-        // Temperature sensors
-        inletTemp: telemetry.inletTemp ?? currentPayload.inletTemp ?? 0,
-        outletTemp: telemetry.outletTemp ?? currentPayload.outletTemp ?? 0,
-        catalystTemp: telemetry.catalystTemp ?? currentPayload.catalystTemp ?? 0,
-        // Fan control
-        fanSpeed: telemetry.fanSpeed ?? currentPayload.fanSpeed ?? 0,
-        fanCurrent: telemetry.fanCurrent ?? currentPayload.fanCurrent ?? 0,
-        // System status
-        burnerStatus: telemetry.burnerStatus ?? currentPayload.burnerStatus ?? "off",
-        purgeStatus: telemetry.purgeStatus ?? currentPayload.purgeStatus ?? "idle",
-        // Runtime data
-        runtimeHours: telemetry.runtimeHours ?? currentPayload.runtimeHours ?? 0,
-        ignitionCount: telemetry.ignitionCount ?? currentPayload.ignitionCount ?? 0,
-      };
+      {
+        const {
+          inletTemp,
+          outletTemp,
+          catalystTemp,
+          fanSpeed,
+          fanCurrent,
+          burnerStatus,
+          purgeStatus,
+          runtimeHours,
+          ignitionCount,
+          ...restPayload
+        } = currentPayload;
+
+        const temperature = toFiniteNumber(telemetry.temperature, toFiniteNumber(currentPayload.temperature, 0));
+        const currentMode = Math.min(4, Math.max(1, Math.round(toFiniteNumber(telemetry.mode, toFiniteNumber(currentPayload.currentMode, 1)))));
+        const countMode = normalizeCountMode(telemetry.countMode ?? currentPayload.countMode);
+        const restSeconds = Math.max(0, Math.round(toFiniteNumber(telemetry.restSeconds, toFiniteNumber(currentPayload.restSeconds, 0))));
+        const modes = buildCatalyticModes(telemetry, currentPayload);
+        const powerOn = countMode !== 0 || restSeconds > 0;
+
+        return {
+          ...restPayload,
+          ...commonUpdate,
+          summary: buildCatalyticSummary(temperature, currentMode, countMode, restSeconds),
+          controls: buildCatalyticControls(currentPayload, powerOn),
+          countdowns: buildCatalyticCountdowns(modes, currentMode, countMode, restSeconds),
+          temperature,
+          powerOn,
+          modes,
+          currentMode,
+          countMode,
+          restSeconds,
+        };
+      }
       
     case "智能仓储":
     case "仓储设备":
@@ -133,72 +238,76 @@ function updateSummary(config, payload) {
  * @param {string} topic - MQTT topic
  * @param {Object} message - Parsed JSON message
  */
-export async function handleMqttMessage(topic, message) {
-  try {
-    // Extract deviceId from topic: devices/{deviceId}/telemetry
-    const match = topic.match(/devices\/([^/]+)\/telemetry/);
-    if (!match) {
-      console.warn(`[MQTT] Unknown topic format: ${topic}`);
-      return;
-    }
-    
-    const deviceId = match[1];
-    console.log(`[MQTT] Processing telemetry for device: ${deviceId}`);
-    
-    // Load current devices
-    const devices = await loadDevices();
-    const deviceIndex = devices.findIndex(d => d.id === deviceId);
-    
-    if (deviceIndex === -1) {
-      console.warn(`[MQTT] Device not found: ${deviceId}`);
-      return;
-    }
-    
-    const device = devices[deviceIndex];
-    
-    // Ensure device has config
-    if (!device.config) {
-      device.config = {
-        name: device.name || "设备监控",
-        summary: [],
-        chart: { data: [] },
-        controls: [],
-        payload: {},
+export function createMqttMessageHandler(options = {}) {
+  const loadDevicesFn = options.loadDevices ?? loadDevices;
+  const saveDevicesFn = options.saveDevices ?? saveDevices;
+  const onDevicesUpdated = options.onDevicesUpdated ?? null;
+
+  return async function handleMqttMessage(topic, message) {
+    try {
+      const match = topic.match(/devices\/([^/]+)\/telemetry/);
+      if (!match) {
+        console.warn(`[MQTT] Unknown topic format: ${topic}`);
+        return;
+      }
+
+      const deviceId = match[1];
+      console.log(`[MQTT] Processing telemetry for device: ${deviceId}`);
+
+      const devices = await loadDevicesFn();
+      const deviceIndex = devices.findIndex((d) => d.id === deviceId);
+
+      if (deviceIndex === -1) {
+        console.warn(`[MQTT] Device not found: ${deviceId}`);
+        return;
+      }
+
+      const device = devices[deviceIndex];
+
+      if (!device.config) {
+        device.config = {
+          name: device.name || "设备监控",
+          summary: [],
+          chart: { data: [] },
+          controls: [],
+          payload: {},
+        };
+      }
+
+      const newPayload = mapTelemetryToPayload(device, message);
+      const newSummary = updateSummary(device.config, newPayload);
+      const now = new Date().toISOString();
+
+      const updatedDevice = {
+        ...device,
+        config: {
+          ...device.config,
+          summary: newSummary,
+          payload: newPayload,
+        },
+        lastActive: now,
+        lastSeenAt: now,
+        updatedAt: now,
+        status: message.status || device.status || "online",
       };
+
+      const updatedDevices = [...devices];
+      updatedDevices[deviceIndex] = updatedDevice;
+
+      await saveDevicesFn(updatedDevices);
+
+      if (typeof onDevicesUpdated === "function") {
+        await onDevicesUpdated(updatedDevices);
+      }
+
+      console.log(`[MQTT] Updated device ${deviceId} with telemetry`);
+    } catch (error) {
+      console.error("[MQTT] Failed to handle message:", error.message);
     }
-    
-    // Map telemetry to payload
-    const newPayload = mapTelemetryToPayload(device, message);
-    
-    // Update summary timestamps
-    const newSummary = updateSummary(device.config, newPayload);
-    
-    // Create updated device
-    const updatedDevice = {
-      ...device,
-      config: {
-        ...device.config,
-        summary: newSummary,
-        payload: newPayload,
-      },
-      lastSeenAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      // Update status based on telemetry
-      status: message.status || device.status || "online",
-    };
-    
-    // Save updated devices
-    const updatedDevices = [...devices];
-    updatedDevices[deviceIndex] = updatedDevice;
-    
-    await saveDevices(updatedDevices);
-    
-    console.log(`[MQTT] Updated device ${deviceId} with telemetry`);
-    
-  } catch (error) {
-    console.error("[MQTT] Failed to handle message:", error.message);
-  }
+  };
 }
+
+export const handleMqttMessage = createMqttMessageHandler();
 
 /**
  * Subscribe to all device telemetry topics
@@ -221,6 +330,7 @@ export function subscribeAllDevices(subscribeFn, devices) {
 }
 
 export default {
+  createMqttMessageHandler,
   handleMqttMessage,
   subscribeAllDevices,
 };

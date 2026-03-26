@@ -3,10 +3,15 @@ import { createApp } from "./app.js";
 import { config } from "./config.js";
 import { closeStorage } from "./storage.js";
 import { connectMqtt, subscribeDevice, disconnectMqtt } from "./mqtt-client.js";
-import { handleMqttMessage, subscribeAllDevices } from "./mqtt-handler.js";
+import { createMqttMessageHandler, subscribeAllDevices } from "./mqtt-handler.js";
 
 async function start() {
   const app = await createApp();
+  const handleMqttMessage = createMqttMessageHandler({
+    onDevicesUpdated: async (nextDevices) => {
+      app.locals.replaceDevices?.(nextDevices);
+    },
+  });
 
   const server = app.listen(config.port, () => {
     console.log(`Roastek backend listening on http://127.0.0.1:${config.port}`);
