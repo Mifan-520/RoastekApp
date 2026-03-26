@@ -24,13 +24,14 @@ services:
     restart: unless-stopped
     environment:
       PORT: 3001
-      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:${WEB_PORT:-8088},http://127.0.0.1:${WEB_PORT:-8088}}
+      FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://localhost:${WEB_PORT:-8080},http://127.0.0.1:${WEB_PORT:-8080}}
       ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
       DATABASE_URL: postgresql://${POSTGRES_USER:-roastek}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-roastek}
       DB_POOL_MAX: ${DB_POOL_MAX:-10}
       DB_CONNECT_RETRIES: ${DB_CONNECT_RETRIES:-20}
       DB_CONNECT_RETRY_DELAY_MS: ${DB_CONNECT_RETRY_DELAY_MS:-1000}
+      DEVICE_OFFLINE_TIMEOUT_MS: ${DEVICE_OFFLINE_TIMEOUT_MS:-15000}
       MQTT_ENABLED: ${MQTT_ENABLED:-true}
       MQTT_HOST: ${MQTT_HOST:-8.136.109.228}
       MQTT_PORT: ${MQTT_PORT:-1883}
@@ -66,7 +67,7 @@ services:
       backend:
         condition: service_healthy
     ports:
-      - "${WEB_PORT:-8088}:80"
+      - "${WEB_PORT:-8080}:80"
 
 volumes:
   roastek-pg-data:

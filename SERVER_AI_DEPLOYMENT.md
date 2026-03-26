@@ -53,7 +53,7 @@
 
 原因：
 
-- 本地 `.env` 中的 `FRONTEND_ORIGIN=http://localhost:8088,http://127.0.0.1:8088` 只适用于本机开发
+- 本地 `.env` 中的 `FRONTEND_ORIGIN=http://localhost:8080,http://127.0.0.1:8080` 只适用于本机开发
 - 本地 `.env` 中的 `ADMIN_PASSWORD=admin` 属于开发态值，不能用于生产服务器
 - 服务器必须改成真实域名或公网访问地址，并使用强密码
 
@@ -79,12 +79,13 @@ bash scripts/server-up.sh
 - `ADMIN_PASSWORD`：必须改成强密码
 - `POSTGRES_PASSWORD`：必须改成强密码
 - `FRONTEND_ORIGIN`：改成真实访问地址
-- `WEB_PORT`：如果 `8088` 被占用则调整
+- `WEB_PORT`：如果 `8080` 被占用则调整
+- `DEVICE_OFFLINE_TIMEOUT_MS`：设备离线超时阈值，默认 15000 毫秒
 
 示例：
 
 ```env
-WEB_PORT=8088
+WEB_PORT=8080
 FRONTEND_ORIGIN=https://your-domain.com
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=请替换为强密码
@@ -94,8 +95,16 @@ POSTGRES_PASSWORD=请替换为强密码
 MQTT_ENABLED=true
 MQTT_HOST=8.136.109.228
 MQTT_PORT=1883
+DEVICE_OFFLINE_TIMEOUT_MS=15000
 VITE_API_BASE_URL=/api
 ```
+
+## MQTT 与本机 / 服务器的关系
+
+- 设备不是“只发给服务器”，而是发给 **MQTT Broker**。
+- 只要本机 Docker 里的 backend 和服务器 backend 都连接到同一个 broker，并订阅同一个 topic（如 `devices/SY-001/telemetry`），两边都会各自收到同一条 telemetry。
+- 这不等于本机数据库和服务器数据库自动同步；更准确地说，是两边**各自消费同一条 MQTT 消息后，分别更新各自的数据库和内存状态**。
+- 如果只想服务器接收 telemetry，本机开发环境就不要同时连接生产 broker，或改用不同 topic / 不同 broker。
 
 ## 更新已有部署
 
@@ -120,6 +129,7 @@ bash scripts/server-update.sh
 - 后端在收到 MQTT telemetry 后，会同时刷新存储层和 API 进程内存，避免“数据库已更新但 API 还在吐旧 payload”
 - 三元催化设备的 telemetry 映射已切换到 ESP32 实际上报字段：`temperature`、`mode`、`countMode`、`restSeconds`、`m1f..m4c`
 - 前端三元催化 HMI 已取消本地自跑倒计时和本地假状态，改为直接显示后端返回的真实 telemetry 映射结果
+- 后端已增加按 `lastSeenAt` 判定的自动离线逻辑，默认超过 `DEVICE_OFFLINE_TIMEOUT_MS=15000` 毫秒未收到 telemetry 就会在 API 中显示为 `offline`
 
 如果服务器还没拉到这次代码，线上页面就仍可能出现以下旧现象：
 
@@ -149,8 +159,8 @@ bash scripts/server-update.sh
 
 ```bash
 docker compose ps
-curl http://127.0.0.1:${WEB_PORT:-8088}/healthz
-curl http://127.0.0.1:${WEB_PORT:-8088}
+curl http://127.0.0.1:${WEB_PORT:-8080}/healthz
+curl http://127.0.0.1:${WEB_PORT:-8080}
 docker compose exec -T backend sh -lc "wget -qO- http://127.0.0.1:3001/healthz"
 ```
 
@@ -171,13 +181,14 @@ docker compose exec -T backend sh -lc "wget -qO- http://127.0.0.1:3001/healthz"
 - HMI 当前模式，要与 `payload.currentMode` 一致
 - HMI 当前倒计时状态，要与 `payload.countMode`、`payload.restSeconds` 一致
 - HMI 模式参数，要与 `payload.modes` 一致
+- 停止发送 telemetry 超过离线阈值后，设备列表和详情页状态要自动从 `online` 变成 `offline`
 
 如果需要按固定排障流程继续联调，顺序应为：**先确认服务器已同步完成 → 再打开服务器页面 → 必要时登录并读取 localStorage/token → 再直接调用线上 API 对比页面显示与返回值**。
 
 ## 域名与 HTTPS 建议
 
 - 内网临时访问时，可直接使用 `${WEB_PORT}`
-- 正式对外时，应在宿主机 Nginx 上反代到 `127.0.0.1:${WEB_PORT:-8088}`
+- 正式对外时，应在宿主机 Nginx 上反代到 `127.0.0.1:${WEB_PORT:-8080}`
 - 使用 `deploy/nginx/reverse-proxy.example.conf` 作为起点
 - 如果启用域名访问，`FRONTEND_ORIGIN` 必须与最终公开地址一致
 
