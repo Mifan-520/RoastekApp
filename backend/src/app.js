@@ -44,12 +44,46 @@ function normalizeRequiredTimestamp(value) {
   return normalizeOptionalTimestamp(value) ?? String(value || "");
 }
 
+function parseTimestampMs(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "-") {
+    return null;
+  }
+
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.getTime();
+}
+
 export function resolveDeviceLastActive(device) {
   return (
     normalizeOptionalTimestamp(device.lastSeenAt)
     ?? normalizeOptionalTimestamp(device.lastActive)
     ?? normalizeOptionalTimestamp(device.updatedAt)
   );
+}
+
+export function resolveDeviceStatus(device, now = new Date(), offlineTimeoutMs = config.deviceOfflineTimeoutMs) {
+  const currentStatus = String(device?.status || "offline").trim().toLowerCase();
+
+  if (currentStatus !== "online") {
+    return currentStatus || "offline";
+  }
+
+  const lastSeenMs = parseTimestampMs(device?.lastSeenAt);
+  if (lastSeenMs === null) {
+    return "offline";
+  }
+
+  const nowMs = now instanceof Date ? now.getTime() : new Date(now).getTime();
+  if (Number.isNaN(nowMs)) {
+    return "offline";
+  }
+
+  return nowMs - lastSeenMs > offlineTimeoutMs ? "offline" : "online";
 }
 
 function serializeUser(user) {
@@ -69,7 +103,7 @@ function serializeDevice(device) {
     type: device.type,
     location: device.location,
     address: device.address,
-    status: device.status,
+    status: resolveDeviceStatus(device),
     lastActive: resolveDeviceLastActive(device),
     lastSeenAt: normalizeOptionalTimestamp(device.lastSeenAt),
     createdAt: normalizeRequiredTimestamp(device.createdAt),

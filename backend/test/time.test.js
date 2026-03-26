@@ -1,7 +1,27 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
-import { createApp, formatShanghaiIso, resolveDeviceLastActive } from "../src/app.js";
+import { createApp, formatShanghaiIso, resolveDeviceLastActive, resolveDeviceStatus } from "../src/app.js";
+import { seedDevices } from "../src/data/devices.js";
+import { createSeedUsers } from "../src/data/users.js";
+import { config } from "../src/config.js";
+
+async function buildIsolatedApp() {
+  const devices = structuredClone(seedDevices);
+  const users = createSeedUsers(config);
+  const groups = [];
+
+  return createApp({
+    loadDevices: async () => structuredClone(devices),
+    saveDevices: async (nextDevices) => {
+      devices.splice(0, devices.length, ...structuredClone(nextDevices));
+    },
+    loadUsers: async () => structuredClone(users),
+    saveUsers: async () => {},
+    loadGroups: async () => structuredClone(groups),
+    saveGroups: async () => {},
+  });
+}
 
 async function loginAs(app, username, password) {
   const response = await request(app)
@@ -28,13 +48,39 @@ test("resolveDeviceLastActive ignores placeholder values and falls back to updat
   assert.equal(lastActive, "2026-03-16T12:00:00+08:00");
 });
 
+test("resolveDeviceStatus marks stale online device as offline after timeout", () => {
+  const status = resolveDeviceStatus(
+    {
+      status: "online",
+      lastSeenAt: "2026-03-16T11:59:40+08:00",
+    },
+    new Date("2026-03-16T12:00:00+08:00"),
+    15000,
+  );
+
+  assert.equal(status, "offline");
+});
+
+test("resolveDeviceStatus keeps fresh online device as online within timeout", () => {
+  const status = resolveDeviceStatus(
+    {
+      status: "online",
+      lastSeenAt: "2026-03-16T11:59:50+08:00",
+    },
+    new Date("2026-03-16T12:00:00+08:00"),
+    15000,
+  );
+
+  assert.equal(status, "online");
+});
+
 test("claim response returns a canonical lastActive timestamp", async () => {
-  const app = await createApp();
+  const app = await buildIsolatedApp();
   const adminSession = await loginAs(app, "admin", "admin");
   const session = await loginAs(app, "user", "user");
 
   const releaseResponse = await request(app)
-    .delete("/api/devices/dev-bean-001")
+    .delete("/api/devices/SD-001")
     .set("Authorization", `Bearer ${adminSession.token}`);
 
   assert.equal(releaseResponse.status, 204);
@@ -50,11 +96,11 @@ test("claim response returns a canonical lastActive timestamp", async () => {
 });
 
 test("re-claim after delete does not reuse the previous owner's last active time", async () => {
-  const app = await createApp();
+  const app = await buildIsolatedApp();
   const adminSession = await loginAs(app, "admin", "admin");
 
   const deleteResponse = await request(app)
-    .delete("/api/devices/dev-bean-001")
+    .delete("/api/devices/SD-001")
     .set("Authorization", `Bearer ${adminSession.token}`);
 
   assert.equal(deleteResponse.status, 204);

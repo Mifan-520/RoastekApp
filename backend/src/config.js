@@ -44,6 +44,7 @@ export const config = {
   dbPoolMax: parsePositiveNumber(process.env.DB_POOL_MAX, 10),
   dbConnectRetries: parsePositiveNumber(process.env.DB_CONNECT_RETRIES, 10),
   dbConnectRetryDelayMs: parsePositiveNumber(process.env.DB_CONNECT_RETRY_DELAY_MS, 1000),
+  deviceOfflineTimeoutMs: parsePositiveNumber(process.env.DEVICE_OFFLINE_TIMEOUT_MS, 15000),
   legacyDevicesFile: (process.env.LEGACY_DEVICES_FILE || "").trim() || null,
   
   // MQTT Configuration
