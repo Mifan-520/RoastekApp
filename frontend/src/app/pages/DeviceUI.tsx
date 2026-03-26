@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from "react-router";
 import { ChevronLeft, Fan, Gauge, LayoutTemplate, Power } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import {
   getDevice,
@@ -57,7 +57,9 @@ export function DeviceUI() {
   );
 
   // 自动刷新设备和配置数据
-  const refreshData = async () => {
+  const refreshData = useCallback(async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+
     if (!id) {
       setPageError("设备参数缺失");
       setDevice(null);
@@ -66,8 +68,9 @@ export function DeviceUI() {
       return;
     }
 
-    setIsLoading(true);
-    setPageError("");
+    if (!silent) {
+      setIsLoading(true);
+    }
 
     try {
       const [nextDevice, nextConfig] = await Promise.all([getDevice(id), getDeviceConfig(id)]);
@@ -75,6 +78,10 @@ export function DeviceUI() {
         nextConfig && (!configId || nextConfig.id === configId) ? nextConfig : null;
       setDevice(nextDevice);
       setConfig(selectedConfig);
+      setPageError("");
+      if (silent) {
+        setIsLoading(false);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "加载监控界面失败";
       if (message.includes("未登录")) {
@@ -83,14 +90,21 @@ export function DeviceUI() {
       }
 
       setPageError(message);
-      setDevice(null);
-      setConfig(null);
+      if (!silent) {
+        setDevice(null);
+        setConfig(null);
+      }
+      if (silent) {
+        setIsLoading(false);
+      }
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
-  };
+  }, [configId, id, navigate]);
 
-  useAutoRefresh(refreshData, [configId, id], {
+  useAutoRefresh(() => refreshData({ silent: true }), [configId, id], {
     interval: 5000,  // 每 5 秒刷新一次
     enabled: !!id,
     onError: (error) => {
@@ -99,7 +113,7 @@ export function DeviceUI() {
   });
 
   useVisibilityRefresh(() => {
-    void refreshData();
+    void refreshData({ silent: true });
   });
 
   if (isLoading) {

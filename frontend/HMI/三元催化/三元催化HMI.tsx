@@ -71,10 +71,9 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
   }, [data.currentMode]);
 
   const actualModeIndex = clampModeIndex(data.currentMode);
-  const rawCountMode = data.countMode === 1 || data.countMode === 2 ? data.countMode : 0;
+  const effectiveCountMode: 0 | 1 | 2 = data.countMode === 1 || data.countMode === 2 ? data.countMode : 0;
   const syncedRestSeconds = Math.max(0, Math.round(Number(data.restSeconds ?? 0)));
-  const effectiveCountMode: 0 | 1 | 2 = rawCountMode === 0 && syncedRestSeconds > 0 ? 1 : rawCountMode;
-  const isRunning = effectiveCountMode !== 0 || syncedRestSeconds > 0;
+  const isRunning = effectiveCountMode !== 0;
   const temperature = Number(data.temperature ?? 0);
   const powerOn = data.powerOn ?? data.controls?.find((control) => control.id === "power")?.active ?? isRunning;
 
