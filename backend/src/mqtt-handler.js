@@ -7,6 +7,7 @@
  */
 
 import { saveDevices, loadDevices } from "./storage.js";
+import { resolveDeviceStatus } from "./app.js";
 
 const DEFAULT_CATALYTIC_MODES = [
   { fireMinutes: 5, closeMinutes: 3 },
@@ -14,6 +15,8 @@ const DEFAULT_CATALYTIC_MODES = [
   { fireMinutes: 5, closeMinutes: 3 },
   { fireMinutes: 5, closeMinutes: 3 },
 ];
+
+export const CATALYTIC_SYNC_TOLERANCE_SECONDS = 5;
 
 function toFiniteNumber(value, fallback = 0) {
   const normalized = Number(value);
@@ -101,6 +104,226 @@ function buildCatalyticCountdowns(modes, currentMode, countMode, restSeconds) {
   ];
 }
 
+function sanitizeCatalyticPayload(currentPayload) {
+  const {
+    inletTemp,
+    outletTemp,
+    catalystTemp,
+    fanSpeed,
+    fanCurrent,
+    burnerStatus,
+    purgeStatus,
+    runtimeHours,
+    ignitionCount,
+    ...restPayload
+  } = currentPayload;
+
+  return restPayload;
+}
+
+function normalizeCatalyticModeMinutes(modes, fallbackModes = DEFAULT_CATALYTIC_MODES) {
+  const sourceModes = Array.isArray(modes) && modes.length > 0 ? modes : fallbackModes;
+
+  return [0, 1, 2, 3].map((index) => {
+    const mode = sourceModes[index] ?? fallbackModes[index] ?? fallbackModes[0];
+    return {
+      fireMinutes: toFiniteNumber(mode.fireMinutes, fallbackModes[index]?.fireMinutes ?? 5),
+      closeMinutes: toFiniteNumber(mode.closeMinutes, fallbackModes[index]?.closeMinutes ?? 3),
+    };
+  });
+}
+
+function createSyncAlarm(id, message, time) {
+  return {
+    id,
+    message,
+    time,
+    level: "warning",
+  };
+}
+
+function reconcileSyncAlarms(existingAlarms = [], nextSyncAlarms = []) {
+  const nonSyncAlarms = existingAlarms.filter((alarm) => !String(alarm?.id || "").startsWith("sync-"));
+  return [...nonSyncAlarms, ...nextSyncAlarms];
+}
+
+function resolveExpectedCatalyticState(expected, referenceDate = new Date()) {
+  if (!expected) {
+    return null;
+  }
+
+  const modes = normalizeCatalyticModeMinutes(expected.modes);
+  const currentMode = Math.min(4, Math.max(1, Math.round(toFiniteNumber(expected.currentMode, 1))));
+  const initialCountMode = normalizeCountMode(expected.countMode);
+  const baseRestSeconds = Math.max(0, Math.round(toFiniteNumber(expected.baseRestSeconds, 0)));
+  const updatedAtMs = new Date(expected.updatedAt || referenceDate).getTime();
+  const nowMs = referenceDate.getTime();
+  const elapsedSeconds = Number.isFinite(updatedAtMs) ? Math.max(0, (nowMs - updatedAtMs) / 1000) : 0;
+  const activeMode = modes[currentMode - 1] ?? DEFAULT_CATALYTIC_MODES[0];
+  const closeTotalSeconds = Math.round(toFiniteNumber(expected.closeSeconds, activeMode.closeMinutes * 60));
+
+  if (initialCountMode === 1) {
+    if (elapsedSeconds < baseRestSeconds) {
+      return {
+        currentMode,
+        countMode: 1,
+        restSeconds: Math.max(0, baseRestSeconds - elapsedSeconds),
+        powerOn: true,
+        modes,
+      };
+    }
+
+    const remainingCloseSeconds = closeTotalSeconds - (elapsedSeconds - baseRestSeconds);
+    if (remainingCloseSeconds > 0) {
+      return {
+        currentMode,
+        countMode: 2,
+        restSeconds: remainingCloseSeconds,
+        powerOn: true,
+        modes,
+      };
+    }
+  }
+
+  if (initialCountMode === 2) {
+    const remainingCloseSeconds = closeTotalSeconds - elapsedSeconds;
+    if (remainingCloseSeconds > 0) {
+      return {
+        currentMode,
+        countMode: 2,
+        restSeconds: remainingCloseSeconds,
+        powerOn: true,
+        modes,
+      };
+    }
+  }
+
+  return {
+    currentMode,
+    countMode: 0,
+    restSeconds: 0,
+    powerOn: false,
+    modes,
+  };
+}
+
+export function buildCatalyticPayload(currentPayload, nextState) {
+  const sanitizedPayload = sanitizeCatalyticPayload(currentPayload);
+  const modes = normalizeCatalyticModeMinutes(nextState.modes ?? currentPayload.modes);
+  const currentMode = Math.min(4, Math.max(1, Math.round(toFiniteNumber(nextState.currentMode, toFiniteNumber(currentPayload.currentMode, 1)))));
+  const countMode = normalizeCountMode(nextState.countMode ?? currentPayload.countMode);
+  const restSeconds = Math.max(0, toFiniteNumber(nextState.restSeconds, toFiniteNumber(currentPayload.restSeconds, 0)));
+  const temperature = toFiniteNumber(nextState.temperature, toFiniteNumber(currentPayload.temperature, 0));
+  const powerOn = typeof nextState.powerOn === "boolean" ? nextState.powerOn : countMode !== 0;
+  const lastTelemetryAt = typeof nextState.lastTelemetryAt === "string"
+    ? nextState.lastTelemetryAt
+    : sanitizedPayload.lastTelemetryAt ?? new Date().toISOString();
+
+  return {
+    ...sanitizedPayload,
+    lastTelemetryAt,
+    summary: buildCatalyticSummary(temperature, currentMode, countMode, restSeconds),
+    controls: buildCatalyticControls(currentPayload, powerOn),
+    countdowns: buildCatalyticCountdowns(modes, currentMode, countMode, restSeconds),
+    temperature,
+    powerOn,
+    modes,
+    currentMode,
+    countMode,
+    restSeconds,
+  };
+}
+
+function reconcileCatalyticSync(device, telemetryPayload, telemetryTime) {
+  const expected = device.syncState?.expected;
+  if (!expected) {
+    return {
+      alarms: reconcileSyncAlarms(device.alarms, []),
+      syncState: {
+        ...(device.syncState || {}),
+        telemetry: {
+          currentMode: telemetryPayload.currentMode,
+          countMode: telemetryPayload.countMode,
+          restSeconds: telemetryPayload.restSeconds,
+          modes: normalizeCatalyticModeMinutes(telemetryPayload.modes),
+          lastTelemetryAt: telemetryPayload.lastTelemetryAt ?? telemetryTime,
+        },
+        status: "idle",
+        lastCheckedAt: telemetryTime,
+      },
+    };
+  }
+
+  const resolvedExpected = resolveExpectedCatalyticState(expected, new Date(telemetryTime));
+  const toleranceSeconds = Math.max(0, Math.round(toFiniteNumber(expected.toleranceSeconds, CATALYTIC_SYNC_TOLERANCE_SECONDS)));
+  const nextSyncAlarms = [];
+
+  if (resolvedExpected.currentMode !== telemetryPayload.currentMode) {
+    nextSyncAlarms.push(createSyncAlarm(
+      `sync-mode-${device.id}`,
+      `本地下发模式${resolvedExpected.currentMode}，但设备上报为模式${telemetryPayload.currentMode}`,
+      telemetryTime,
+    ));
+  }
+
+  if (resolvedExpected.countMode !== telemetryPayload.countMode) {
+    nextSyncAlarms.push(createSyncAlarm(
+      `sync-phase-${device.id}`,
+      `本地预期阶段为${resolvedExpected.countMode}，但设备上报阶段为${telemetryPayload.countMode}`,
+      telemetryTime,
+    ));
+  }
+
+  if (resolvedExpected.countMode !== 0 && telemetryPayload.countMode === resolvedExpected.countMode) {
+    const countdownDrift = Math.abs(toFiniteNumber(telemetryPayload.restSeconds, 0) - toFiniteNumber(resolvedExpected.restSeconds, 0));
+    if (countdownDrift > toleranceSeconds) {
+      nextSyncAlarms.push(createSyncAlarm(
+        `sync-countdown-${device.id}`,
+        `本地预期剩余${Math.round(resolvedExpected.restSeconds)}秒，设备上报${telemetryPayload.restSeconds}秒，差值${countdownDrift.toFixed(1)}秒`,
+        telemetryTime,
+      ));
+    }
+  }
+
+  const expectedModes = normalizeCatalyticModeMinutes(resolvedExpected.modes);
+  const telemetryModes = normalizeCatalyticModeMinutes(telemetryPayload.modes);
+  const modeParamMismatches = expectedModes
+    .map((mode, index) => {
+      const telemetryMode = telemetryModes[index] ?? telemetryModes[0];
+      const fireDrift = Math.abs(Math.round(mode.fireMinutes * 60) - Math.round(telemetryMode.fireMinutes * 60));
+      const closeDrift = Math.abs(Math.round(mode.closeMinutes * 60) - Math.round(telemetryMode.closeMinutes * 60));
+      return fireDrift > toleranceSeconds || closeDrift > toleranceSeconds
+        ? `模式${index + 1}(点火差${fireDrift}s/关机差${closeDrift}s)`
+        : null;
+    })
+    .filter(Boolean);
+
+  if (modeParamMismatches.length > 0) {
+    nextSyncAlarms.push(createSyncAlarm(
+      `sync-modes-${device.id}`,
+      `模式时间与设备上报不同步：${modeParamMismatches.join("、")}`,
+      telemetryTime,
+    ));
+  }
+
+  return {
+    alarms: reconcileSyncAlarms(device.alarms, nextSyncAlarms),
+    syncState: {
+      ...(device.syncState || {}),
+      expected,
+      telemetry: {
+        currentMode: telemetryPayload.currentMode,
+        countMode: telemetryPayload.countMode,
+        restSeconds: telemetryPayload.restSeconds,
+        modes: telemetryModes,
+        lastTelemetryAt: telemetryPayload.lastTelemetryAt ?? telemetryTime,
+      },
+      status: nextSyncAlarms.length > 0 ? "warning" : "matched",
+      lastCheckedAt: telemetryTime,
+    },
+  };
+}
+
 /**
  * Map telemetry data to device config.payload based on device type
  * @param {Object} device - Device object from storage
@@ -120,19 +343,6 @@ export function mapTelemetryToPayload(device, telemetry) {
     case "三元催化":
     case "催化设备":
       {
-        const {
-          inletTemp,
-          outletTemp,
-          catalystTemp,
-          fanSpeed,
-          fanCurrent,
-          burnerStatus,
-          purgeStatus,
-          runtimeHours,
-          ignitionCount,
-          ...restPayload
-        } = currentPayload;
-
         const temperature = toFiniteNumber(telemetry.temperature, toFiniteNumber(currentPayload.temperature, 0));
         const currentMode = Math.min(4, Math.max(1, Math.round(toFiniteNumber(telemetry.mode, toFiniteNumber(currentPayload.currentMode, 1)))));
         const countMode = normalizeCountMode(telemetry.countMode ?? currentPayload.countMode);
@@ -140,19 +350,15 @@ export function mapTelemetryToPayload(device, telemetry) {
         const modes = buildCatalyticModes(telemetry, currentPayload);
         const powerOn = countMode !== 0;
 
-        return {
-          ...restPayload,
+        return buildCatalyticPayload(currentPayload, {
           ...commonUpdate,
-          summary: buildCatalyticSummary(temperature, currentMode, countMode, restSeconds),
-          controls: buildCatalyticControls(currentPayload, powerOn),
-          countdowns: buildCatalyticCountdowns(modes, currentMode, countMode, restSeconds),
           temperature,
-          powerOn,
-          modes,
           currentMode,
           countMode,
           restSeconds,
-        };
+          modes,
+          powerOn,
+        });
       }
       
     case "智能仓储":
@@ -284,6 +490,9 @@ export function createMqttMessageHandler(options = {}) {
       const newSummary = updateSummary(device.config, newPayload);
       const now = new Date().toISOString();
 
+      // Check previous status before updating lastSeenAt
+      const prevStatus = resolveDeviceStatus(device);
+
       const updatedDevice = {
         ...device,
         config: {
@@ -296,6 +505,27 @@ export function createMqttMessageHandler(options = {}) {
         updatedAt: now,
         status: message.status || device.status || "online",
       };
+
+      // Record connection history on status transition (offline -> online)
+      if (prevStatus === "offline") {
+        const historyEntry = {
+          id: `ch-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          type: "online",
+          time: now,
+          label: "设备上线",
+        };
+        updatedDevice.connectionHistory = [
+          ...(updatedDevice.connectionHistory || []),
+          historyEntry,
+        ];
+        console.log(`[MQTT] Device ${deviceId} went online, recorded in connectionHistory`);
+      }
+
+      if (device.type === "三元催化" || device.type === "催化设备") {
+        const { alarms, syncState } = reconcileCatalyticSync(updatedDevice, newPayload, now);
+        updatedDevice.alarms = alarms;
+        updatedDevice.syncState = syncState;
+      }
 
       const updatedDevices = [...devices];
       updatedDevices[deviceIndex] = updatedDevice;

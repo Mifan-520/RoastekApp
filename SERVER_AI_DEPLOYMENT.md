@@ -126,10 +126,14 @@ bash scripts/server-update.sh
 
 涉及的本次改动重点：
 
-- 后端在收到 MQTT telemetry 后，会同时刷新存储层和 API 进程内存，避免“数据库已更新但 API 还在吐旧 payload”
+- 后端在收到 MQTT telemetry 后，会同时刷新存储层和 API 进程内存，避免"数据库已更新但 API 还在吐旧 payload"
 - 三元催化设备的 telemetry 映射已切换到 ESP32 实际上报字段：`temperature`、`mode`、`countMode`、`restSeconds`、`m1f..m4c`
 - 前端三元催化 HMI 已取消本地自跑倒计时和本地假状态，改为直接显示后端返回的真实 telemetry 映射结果
 - 后端已增加按 `lastSeenAt` 判定的自动离线逻辑，默认超过 `DEVICE_OFFLINE_TIMEOUT_MS=15000` 毫秒未收到 telemetry 就会在 API 中显示为 `offline`
+- 后端已实现设备上下线记录同步：设备从离线恢复上线时（再次收到 telemetry），会在 `connectionHistory` 中自动添加一条"设备上线"记录
+- 前端设备详情页的上下线记录区域可展示设备的连接历史（每次上线事件）
+- 前端已删除告警页面描述文本"显示当前设备中心的全部告警，包括同步异常与普通设备告警"
+- 清理了调试遗留文件 `esp32_time_sync.txt`、`esp32_time_sync.err.txt`
 
 如果服务器还没拉到这次代码，线上页面就仍可能出现以下旧现象：
 
