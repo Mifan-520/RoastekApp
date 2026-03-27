@@ -27,6 +27,17 @@ function getToneClass(tone?: "rose" | "amber") {
   return tone ? toneClasses[tone] : "border-rose-900/20 bg-[#1a0f12] text-slate-100";
 }
 
+function ErrorBanner({ error }: { error?: string }) {
+  if (!error) return null;
+  return (
+    <div className="px-6 pt-4 w-full">
+      <div className="rounded-2xl border border-amber-900/50 bg-amber-600/10 px-4 py-3 text-sm text-amber-100">
+        {error}
+      </div>
+    </div>
+  );
+}
+
 function ControlIcon({ icon, active }: { icon?: DeviceUiControlItem["icon"]; active: boolean }) {
   const className = `w-5 h-5 ${icon === "fan" && active ? "animate-spin" : ""}`;
 

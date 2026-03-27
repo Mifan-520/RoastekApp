@@ -14,20 +14,25 @@ export function DeviceOverview() {
   const [pageError, setPageError] = useState("");
 
   // 自动刷新设备详情数据
-  const refreshData = async () => {
+  const refreshData = async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    
     if (!id) {
       setPageError("设备参数缺失");
       setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
-    setPageError("");
+    if (!silent) {
+      setIsLoading(true);
+      setPageError("");
+    }
 
     try {
       const [nextDevice, nextConfig] = await Promise.all([getDevice(id), getDeviceConfig(id)]);
       setDevice(nextDevice);
       setConfig(nextConfig);
+      if (silent) setPageError(""); // Clear any previous errors if successful
     } catch (error) {
       const message = error instanceof Error ? error.message : "加载设备详情失败";
       if (message.includes("未登录")) {
@@ -36,14 +41,18 @@ export function DeviceOverview() {
       }
 
       setPageError(message);
-      setDevice(null);
-      setConfig(null);
+      if (!silent) {
+        setDevice(null);
+        setConfig(null);
+      }
     } finally {
-      setIsLoading(false);
+      if (!silent) {
+        setIsLoading(false);
+      }
     }
   };
 
-  useAutoRefresh(refreshData, [id], {
+  useAutoRefresh(() => refreshData({ silent: true }), [id], {
     interval: 5000,  // 每 5 秒刷新一次
     enabled: !!id,
     onError: (error) => {
@@ -52,11 +61,13 @@ export function DeviceOverview() {
   });
 
   useVisibilityRefresh(() => {
-    void refreshData();
+    void refreshData({ silent: true });
   });
 
   const alarms = device?.alarms || [];
-  const connectionHistory = device?.connectionHistory || [];
+  const connectionHistory = [...(device?.connectionHistory || [])].sort(
+    (a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()
+  );
 
   const handleDeleteAlarm = async (alarmId: string) => {
     if (!id) return;

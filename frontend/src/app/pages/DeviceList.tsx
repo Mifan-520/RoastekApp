@@ -35,14 +35,19 @@ export function DeviceList() {
   const [isDeviceSubmitting, setIsDeviceSubmitting] = useState(false);
 
   // 自动刷新设备列表和分组数据
-  const refreshData = async () => {
-    setIsDevicesLoading(true);
-    setListError("");
+  const refreshData = async (options?: { silent?: boolean }) => {
+    const silent = options?.silent ?? false;
+    
+    if (!silent) {
+      setIsDevicesLoading(true);
+      setListError("");
+    }
 
     try {
       const [nextDevices, nextGroups] = await Promise.all([getDevices(), getGroups()]);
       setDevices(nextDevices);
       setGroups(nextGroups);
+      if (silent) setListError(""); // Clear any previous errors if successful
     } catch (error) {
       const message = error instanceof Error ? error.message : "加载设备失败";
       setListError(message);
@@ -52,11 +57,13 @@ export function DeviceList() {
       }
     } finally {
       setHasResolvedInitialDeviceLoad(true);
-      setIsDevicesLoading(false);
+      if (!silent) {
+        setIsDevicesLoading(false);
+      }
     }
   };
 
-  useAutoRefresh(refreshData, [], {
+  useAutoRefresh(() => refreshData({ silent: true }), [], {
     interval: 5000,  // 每 5 秒刷新一次
     enabled: true,
     onError: (error) => {
@@ -65,7 +72,7 @@ export function DeviceList() {
   });
 
   useVisibilityRefresh(() => {
-    void refreshData();
+    void refreshData({ silent: true });
   });
 
   const openAddDeviceModal = () => {
