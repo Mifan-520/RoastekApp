@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
-import { createApp, formatShanghaiIso, resolveDeviceLastActive, resolveDeviceStatus } from "../src/app.js";
+import { createApp, formatShanghaiIso, markDevicesOffline, resolveDeviceLastActive, resolveDeviceStatus } from "../src/app.js";
 import { seedDevices } from "../src/data/devices.js";
 import { createSeedUsers } from "../src/data/users.js";
 import { config } from "../src/config.js";
@@ -72,6 +72,31 @@ test("resolveDeviceStatus keeps fresh online device as online within timeout", (
   );
 
   assert.equal(status, "online");
+});
+
+test("markDevicesOffline appends offline connection history when device times out", () => {
+  const devices = [
+    {
+      id: "SY-001",
+      status: "online",
+      lastSeenAt: "2026-03-16T11:59:40+08:00",
+      updatedAt: "2026-03-16T11:59:40+08:00",
+      connectionHistory: [],
+    },
+  ];
+
+  const nextDevices = markDevicesOffline(
+    devices,
+    new Date("2026-03-16T12:00:00+08:00"),
+    15000,
+  );
+
+  assert.notEqual(nextDevices, devices);
+  assert.equal(nextDevices[0].status, "offline");
+  assert.equal(nextDevices[0].connectionHistory.length, 1);
+  assert.equal(nextDevices[0].connectionHistory[0].type, "offline");
+  assert.equal(nextDevices[0].connectionHistory[0].label, "设备离线");
+  assert.equal(nextDevices[0].connectionHistory[0].time, "2026-03-16T12:00:00+08:00");
 });
 
 test("claim response returns a canonical lastActive timestamp", async () => {

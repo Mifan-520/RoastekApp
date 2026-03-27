@@ -38,6 +38,7 @@ async function start() {
 
   const shutdown = async (signal) => {
     console.log(`[Server] Received ${signal}, shutting down...`);
+    app.locals.stopDeviceStatusMonitor?.();
     
     // Disconnect MQTT if connected
     if (mqttConnected) {

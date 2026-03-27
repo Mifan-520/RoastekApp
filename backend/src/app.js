@@ -88,6 +88,44 @@ export function resolveDeviceStatus(device, now = new Date(), offlineTimeoutMs =
   return nowMs - lastSeenMs > offlineTimeoutMs ? "offline" : "online";
 }
 
+export function markDevicesOffline(devices, now = new Date(), offlineTimeoutMs = config.deviceOfflineTimeoutMs) {
+  if (!Array.isArray(devices) || devices.length === 0) {
+    return devices;
+  }
+
+  const referenceDate = now instanceof Date ? now : new Date(now);
+  const offlineTime = formatShanghaiIso(referenceDate);
+  let changed = false;
+
+  const nextDevices = devices.map((device) => {
+    const currentStatus = String(device?.status || "offline").trim().toLowerCase();
+    const resolvedStatus = resolveDeviceStatus(device, referenceDate, offlineTimeoutMs);
+
+    if (currentStatus !== "online" || resolvedStatus !== "offline") {
+      return device;
+    }
+
+    changed = true;
+
+    return {
+      ...device,
+      status: "offline",
+      updatedAt: offlineTime,
+      connectionHistory: [
+        ...(device.connectionHistory || []),
+        {
+          id: `ch-${referenceDate.getTime()}-${Math.random().toString(36).slice(2, 7)}`,
+          type: "offline",
+          time: offlineTime,
+          label: "设备离线",
+        },
+      ],
+    };
+  });
+
+  return changed ? nextDevices : devices;
+}
+
 function serializeUser(user) {
   return {
     username: user.username,
@@ -194,12 +232,13 @@ function applyCatalyticCommandLocally(device, command, issuedAt) {
   const activeMode = modes[selectedMode - 1] ?? modes[0];
   const fireSeconds = Math.max(0, Math.round(toFiniteNumber(params.fireSec, activeMode.fireMinutes * 60)));
   const closeSeconds = Math.max(0, Math.round(toFiniteNumber(params.closeSec, activeMode.closeMinutes * 60)));
+  const isRunning = toFiniteNumber(currentPayload.countMode, 0) !== 0;
 
   let nextPayload = currentPayload;
 
   switch (command.command) {
     case "setMode":
-      if (toFiniteNumber(currentPayload.countMode, 0) !== 0) {
+      if (isRunning) {
         return device;
       }
       nextPayload = buildCatalyticPayload(currentPayload, {
@@ -211,6 +250,10 @@ function applyCatalyticCommandLocally(device, command, issuedAt) {
       });
       break;
     case "setModeParams": {
+      if (isRunning) {
+        return device;
+      }
+
       const nextModes = [1, 2, 3, 4].map((modeIndex) => {
         const currentMode = modes[modeIndex - 1] ?? modes[0];
         const nextFireSeconds = toFiniteNumber(params[`mode${modeIndex}FireSec`], currentMode.fireMinutes * 60);
@@ -231,6 +274,10 @@ function applyCatalyticCommandLocally(device, command, issuedAt) {
       break;
     }
     case "setTime": {
+      if (isRunning) {
+        return device;
+      }
+
       const mode = Math.min(4, Math.max(1, Math.round(toFiniteNumber(params.mode ?? params.m, selectedMode))));
       const currentMode = modes[mode - 1] ?? modes[0];
       const nextModes = modes.map((item, index) => ({ ...item }));
@@ -249,6 +296,10 @@ function applyCatalyticCommandLocally(device, command, issuedAt) {
       break;
     }
     case "start":
+      if (isRunning) {
+        return device;
+      }
+
       nextPayload = buildCatalyticPayload(currentPayload, {
         currentMode: selectedMode,
         countMode: 1,
@@ -353,6 +404,37 @@ export async function createApp(options = {}) {
 
   app.locals.replaceDevices = (nextDevices) => {
     devices = Array.isArray(nextDevices) ? nextDevices : devices;
+  };
+
+  let isOfflineSweepRunning = false;
+  const offlineSweepIntervalMs = Math.max(1000, Math.min(5000, config.deviceOfflineTimeoutMs));
+  const offlineSweepTimer = setInterval(() => {
+    if (isOfflineSweepRunning) {
+      return;
+    }
+
+    isOfflineSweepRunning = true;
+    void (async () => {
+      try {
+        const nextDevices = markDevicesOffline(devices, new Date(), config.deviceOfflineTimeoutMs);
+        if (nextDevices !== devices) {
+          await saveDevicesFn(nextDevices);
+          devices = nextDevices;
+        }
+      } catch (error) {
+        console.error("[Devices] Failed to persist offline status:", error.message);
+      } finally {
+        isOfflineSweepRunning = false;
+      }
+    })();
+  }, offlineSweepIntervalMs);
+
+  if (typeof offlineSweepTimer.unref === "function") {
+    offlineSweepTimer.unref();
+  }
+
+  app.locals.stopDeviceStatusMonitor = () => {
+    clearInterval(offlineSweepTimer);
   };
 
   async function persistUsers(nextUsers, res) {
