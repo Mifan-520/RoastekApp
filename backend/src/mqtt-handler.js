@@ -85,6 +85,12 @@ function buildCatalyticSummary(temperature, currentMode, countMode, restSeconds)
   ];
 }
 
+function formatCatalyticPhase(countMode) {
+  if (countMode === 1) return "点火中";
+  if (countMode === 2) return "关机中";
+  return "待机";
+}
+
 function buildCatalyticCountdowns(modes, currentMode, countMode, restSeconds) {
   const activeMode = modes[currentMode - 1] ?? DEFAULT_CATALYTIC_MODES[0];
 
@@ -261,7 +267,7 @@ function reconcileCatalyticSync(device, telemetryPayload, telemetryTime) {
   if (resolvedExpected.currentMode !== telemetryPayload.currentMode) {
     nextSyncAlarms.push(createSyncAlarm(
       `sync-mode-${device.id}`,
-      `本地下发模式${resolvedExpected.currentMode}，但设备上报为模式${telemetryPayload.currentMode}`,
+      `发送模式${resolvedExpected.currentMode}后，设备当前是模式${telemetryPayload.currentMode}`,
       telemetryTime,
     ));
   }
@@ -269,7 +275,7 @@ function reconcileCatalyticSync(device, telemetryPayload, telemetryTime) {
   if (resolvedExpected.countMode !== telemetryPayload.countMode) {
     nextSyncAlarms.push(createSyncAlarm(
       `sync-phase-${device.id}`,
-      `本地预期阶段为${resolvedExpected.countMode}，但设备上报阶段为${telemetryPayload.countMode}`,
+      `发送后应进入${formatCatalyticPhase(resolvedExpected.countMode)}，设备当前是${formatCatalyticPhase(telemetryPayload.countMode)}`,
       telemetryTime,
     ));
   }
@@ -279,7 +285,7 @@ function reconcileCatalyticSync(device, telemetryPayload, telemetryTime) {
     if (countdownDrift > toleranceSeconds) {
       nextSyncAlarms.push(createSyncAlarm(
         `sync-countdown-${device.id}`,
-        `本地预期剩余${Math.round(resolvedExpected.restSeconds)}秒，设备上报${telemetryPayload.restSeconds}秒，差值${countdownDrift.toFixed(1)}秒`,
+        `发送后预计还剩${Math.round(resolvedExpected.restSeconds)}秒，设备当前还剩${telemetryPayload.restSeconds}秒，相差${countdownDrift.toFixed(1)}秒`,
         telemetryTime,
       ));
     }
@@ -293,7 +299,7 @@ function reconcileCatalyticSync(device, telemetryPayload, telemetryTime) {
       const fireDrift = Math.abs(Math.round(mode.fireMinutes * 60) - Math.round(telemetryMode.fireMinutes * 60));
       const closeDrift = Math.abs(Math.round(mode.closeMinutes * 60) - Math.round(telemetryMode.closeMinutes * 60));
       return fireDrift > toleranceSeconds || closeDrift > toleranceSeconds
-        ? `模式${index + 1}(点火差${fireDrift}s/关机差${closeDrift}s)`
+        ? `模式${index + 1}(点火相差${fireDrift}秒/关机相差${closeDrift}秒)`
         : null;
     })
     .filter(Boolean);
@@ -301,7 +307,7 @@ function reconcileCatalyticSync(device, telemetryPayload, telemetryTime) {
   if (modeParamMismatches.length > 0) {
     nextSyncAlarms.push(createSyncAlarm(
       `sync-modes-${device.id}`,
-      `模式时间与设备上报不同步：${modeParamMismatches.join("、")}`,
+      `发送的模式时间与设备当前设置不一致：${modeParamMismatches.join("、")}`,
       telemetryTime,
     ));
   }

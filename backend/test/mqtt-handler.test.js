@@ -286,6 +286,6 @@ test("handleMqttMessage creates sync warning when telemetry diverges from local 
   assert.equal(Array.isArray(savedDevices), true);
   assert.equal(savedDevices[0].alarms.length, 1);
   assert.match(savedDevices[0].alarms[0].id, /^sync-mode-/);
-  assert.match(savedDevices[0].alarms[0].message, /本地下发模式2/);
+  assert.match(savedDevices[0].alarms[0].message, /发送模式2后/);
   assert.equal(savedDevices[0].syncState.status, "warning");
 });
