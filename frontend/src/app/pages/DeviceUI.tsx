@@ -76,8 +76,8 @@ export function DeviceUI() {
   );
   const syncState = device?.syncState;
   const syncWarningAlarms = useMemo(
-    () => (device?.alarms ?? []).filter((alarm) => String(alarm.id || "").startsWith("sync-")),
-    [device?.alarms],
+    () => syncState?.activeWarnings ?? [],
+    [syncState?.activeWarnings],
   );
   const syncWarningKey = useMemo(
     () => syncWarningAlarms.map((alarm) => `${alarm.id}:${alarm.time}`).join("|"),

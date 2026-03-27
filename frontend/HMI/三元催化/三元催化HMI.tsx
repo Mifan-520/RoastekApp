@@ -59,10 +59,31 @@ export function CatalyticConverterHMI({ data, syncState, onControlChange }: Cata
   );
   const [selectedMode, setSelectedMode] = useState(() => clampModeIndex(data.currentMode));
   const [editingMode, setEditingMode] = useState<number | null>(null);
-  const [editFireMinutes, setEditFireMinutes] = useState(5);
-  const [editCloseMinutes, setEditCloseMinutes] = useState(3);
+  const [editFireMinutesDraft, setEditFireMinutesDraft] = useState("5");
+  const [editCloseMinutesDraft, setEditCloseMinutesDraft] = useState("3");
   const [countdownSyncedAtMs, setCountdownSyncedAtMs] = useState(() => Date.now());
   const [countdownNowMs, setCountdownNowMs] = useState(() => Date.now());
+
+  const parseMinutesDraft = (value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return { isValid: true, value: 0 };
+    }
+
+    const parsed = Number(trimmed);
+    if (!Number.isFinite(parsed)) {
+      return { isValid: false, value: 0 };
+    }
+
+    return {
+      isValid: parsed >= 0 && parsed <= 60,
+      value: Math.max(0, Math.min(60, parsed)),
+    };
+  };
+
+  const fireMinutesDraftState = parseMinutesDraft(editFireMinutesDraft);
+  const closeMinutesDraftState = parseMinutesDraft(editCloseMinutesDraft);
+  const isEditingDraftValid = fireMinutesDraftState.isValid && closeMinutesDraftState.isValid;
 
   useEffect(() => {
     if (data.modes && data.modes.length > 0) {
@@ -152,8 +173,8 @@ export function CatalyticConverterHMI({ data, syncState, onControlChange }: Cata
   const startEditing = () => {
     if (isEffectivelyRunning) return;
     setEditingMode(selectedMode);
-    setEditFireMinutes(currentParams.fireMinutes);
-    setEditCloseMinutes(currentParams.closeMinutes);
+    setEditFireMinutesDraft(String(currentParams.fireMinutes));
+    setEditCloseMinutesDraft(String(currentParams.closeMinutes));
   };
 
   const cancelEditing = () => {
@@ -162,11 +183,12 @@ export function CatalyticConverterHMI({ data, syncState, onControlChange }: Cata
 
   const saveEditing = () => {
     if (editingMode === null) return;
+    if (!isEditingDraftValid) return;
 
     const newModeParams = [...modeParams];
     newModeParams[editingMode] = {
-      fireMinutes: editFireMinutes,
-      closeMinutes: editCloseMinutes,
+      fireMinutes: fireMinutesDraftState.value,
+      closeMinutes: closeMinutesDraftState.value,
     };
 
     setModeParams(newModeParams);
@@ -233,11 +255,18 @@ export function CatalyticConverterHMI({ data, syncState, onControlChange }: Cata
               <div className="flex items-center justify-between">
                 <label className="text-sm text-slate-300">点火倒计时（分钟）</label>
                 <input
-                  type="number"
-                  min="1"
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*[.]?[0-9]*"
+                  min="0"
                   max="60"
-                  value={editFireMinutes}
-                  onChange={(e) => setEditFireMinutes(Math.max(1, Number(e.target.value) || 1))}
+                  value={editFireMinutesDraft}
+                  onChange={(e) => {
+                    const nextValue = e.target.value;
+                    if (/^\d*(?:\.\d*)?$/.test(nextValue)) {
+                      setEditFireMinutesDraft(nextValue);
+                    }
+                  }}
                   className="w-20 px-3 py-1.5 rounded-lg bg-[#3a3535] border border-[#4a4545] text-white text-center font-mono"
                 />
               </div>
@@ -245,11 +274,18 @@ export function CatalyticConverterHMI({ data, syncState, onControlChange }: Cata
               <div className="flex items-center justify-between">
                 <label className="text-sm text-slate-300">关机倒计时（分钟）</label>
                 <input
-                  type="number"
-                  min="1"
+                  type="text"
+                  inputMode="decimal"
+                  pattern="[0-9]*[.]?[0-9]*"
+                  min="0"
                   max="60"
-                  value={editCloseMinutes}
-                  onChange={(e) => setEditCloseMinutes(Math.max(1, Number(e.target.value) || 1))}
+                  value={editCloseMinutesDraft}
+                  onChange={(e) => {
+                    const nextValue = e.target.value;
+                    if (/^\d*(?:\.\d*)?$/.test(nextValue)) {
+                      setEditCloseMinutesDraft(nextValue);
+                    }
+                  }}
                   className="w-20 px-3 py-1.5 rounded-lg bg-[#3a3535] border border-[#4a4545] text-white text-center font-mono"
                 />
               </div>
@@ -257,13 +293,16 @@ export function CatalyticConverterHMI({ data, syncState, onControlChange }: Cata
 
             <div className="flex gap-2 mt-4">
               <button
+                type="button"
                 onClick={saveEditing}
+                disabled={!isEditingDraftValid}
                 className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold transition-colors"
               >
                 <Check className="w-4 h-4" />
                 保存
               </button>
               <button
+                type="button"
                 onClick={cancelEditing}
                 className="flex-1 flex items-center justify-center gap-1 py-2 rounded-lg bg-[#231F1F] hover:bg-[#3a3535] text-white text-sm font-bold transition-colors border border-[#3a3535]"
               >

@@ -1,3 +1,9 @@
+import type {
+  DeviceSyncExpectedStateRecord,
+  DeviceSyncStateRecord,
+  DeviceSyncTelemetryStateRecord,
+} from "../src/app/services/devices";
+
 export interface DeviceConfig {
   deviceId: string;
   deviceName: string;
@@ -61,36 +67,11 @@ export interface HMIDataShape {
   frequency?: HMIFrequency;
 }
 
-export interface HMISyncExpectedState {
-  currentMode: number;
-  countMode: number;
-  baseRestSeconds: number;
-  closeSeconds?: number;
-  modes?: ModeParams[];
-  updatedAt: string;
-  sourceCommand: string;
-  toleranceSeconds: number;
-}
+export type HMISyncExpectedState = DeviceSyncExpectedStateRecord;
 
-export interface HMISyncTelemetryState {
-  currentMode: number;
-  countMode: number;
-  restSeconds: number;
-  modes?: ModeParams[];
-  lastTelemetryAt?: string;
-}
+export type HMISyncTelemetryState = DeviceSyncTelemetryStateRecord;
 
-export interface HMISyncState {
-  status: "idle" | "pending" | "matched" | "warning";
-  lastCheckedAt?: string;
-  lastCommand?: {
-    command: string;
-    params: Record<string, unknown>;
-    issuedAt: string;
-  };
-  expected?: HMISyncExpectedState;
-  telemetry?: HMISyncTelemetryState;
-}
+export type HMISyncState = DeviceSyncStateRecord;
 
 export type HMIControlValue =
   | boolean

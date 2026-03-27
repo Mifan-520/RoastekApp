@@ -90,6 +90,7 @@ export interface DeviceSyncStateRecord {
   };
   expected?: DeviceSyncExpectedStateRecord;
   telemetry?: DeviceSyncTelemetryStateRecord;
+  activeWarnings?: DeviceAlarmRecord[];
 }
 
 export interface DeviceAlarmRecord {
