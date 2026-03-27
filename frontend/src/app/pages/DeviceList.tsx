@@ -57,9 +57,7 @@ export function DeviceList() {
       }
     } finally {
       setHasResolvedInitialDeviceLoad(true);
-      if (!silent) {
-        setIsDevicesLoading(false);
-      }
+      setIsDevicesLoading(false);
     }
   };
 

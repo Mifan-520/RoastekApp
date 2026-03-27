@@ -46,9 +46,7 @@ export function DeviceOverview() {
         setConfig(null);
       }
     } finally {
-      if (!silent) {
-        setIsLoading(false);
-      }
+      setIsLoading(false);
     }
   };
 
