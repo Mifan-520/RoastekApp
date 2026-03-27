@@ -287,5 +287,95 @@ test("handleMqttMessage creates sync warning when telemetry diverges from local 
   assert.equal(savedDevices[0].alarms.length, 1);
   assert.match(savedDevices[0].alarms[0].id, /^sync-mode-/);
   assert.match(savedDevices[0].alarms[0].message, /发送模式2后/);
+  assert.equal(savedDevices[0].syncState.activeWarnings.length, 1);
   assert.equal(savedDevices[0].syncState.status, "warning");
+});
+
+test("handleMqttMessage keeps sync alarm history after telemetry returns to matched", async () => {
+  const devices = [
+    {
+      id: "SY-001",
+      type: "催化设备",
+      alarms: [],
+      syncState: {
+        status: "pending",
+        expected: {
+          currentMode: 2,
+          countMode: 0,
+          baseRestSeconds: 0,
+          modes: [
+            { fireMinutes: 10, closeMinutes: 3 },
+            { fireMinutes: 9.5, closeMinutes: 4 },
+            { fireMinutes: 9, closeMinutes: 4 },
+            { fireMinutes: 0.25, closeMinutes: 0.25 },
+          ],
+          updatedAt: "2026-03-26T08:00:00.000Z",
+          sourceCommand: "setMode",
+          toleranceSeconds: 5,
+        },
+      },
+      config: {
+        payload: {
+          summary: [],
+          controls: [{ id: "power", active: false, label: "总电源", description: "已停止", icon: "power", tone: "rose" }],
+          countdowns: [{ id: "fire", value: 600 }, { id: "close", value: 180 }],
+          temperature: 14.4,
+          currentMode: 2,
+          countMode: 0,
+          restSeconds: 0,
+          modes: [
+            { fireMinutes: 10, closeMinutes: 3 },
+            { fireMinutes: 9.5, closeMinutes: 4 },
+            { fireMinutes: 9, closeMinutes: 4 },
+            { fireMinutes: 0.25, closeMinutes: 0.25 },
+          ],
+        },
+      },
+    },
+  ];
+
+  const handleMqttMessage = createMqttMessageHandler({
+    loadDevices: async () => structuredClone(devices),
+    saveDevices: async (nextDevices) => {
+      devices.splice(0, devices.length, ...structuredClone(nextDevices));
+    },
+  });
+
+  await handleMqttMessage("devices/SY-001/telemetry", {
+    temperature: 14.0,
+    mode: 1,
+    countMode: 0,
+    restSeconds: 0,
+    m1f: 600,
+    m1c: 180,
+    m2f: 570,
+    m2c: 240,
+    m3f: 540,
+    m3c: 240,
+    m4f: 15,
+    m4c: 15,
+  });
+
+  assert.equal(devices[0].alarms.length, 1);
+  assert.equal(devices[0].syncState.status, "warning");
+  assert.equal(devices[0].syncState.activeWarnings.length, 1);
+
+  await handleMqttMessage("devices/SY-001/telemetry", {
+    temperature: 14.0,
+    mode: 2,
+    countMode: 0,
+    restSeconds: 0,
+    m1f: 600,
+    m1c: 180,
+    m2f: 570,
+    m2c: 240,
+    m3f: 540,
+    m3c: 240,
+    m4f: 15,
+    m4c: 15,
+  });
+
+  assert.equal(devices[0].alarms.length, 1);
+  assert.equal(devices[0].syncState.status, "matched");
+  assert.deepEqual(devices[0].syncState.activeWarnings, []);
 });

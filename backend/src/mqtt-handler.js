@@ -148,9 +148,19 @@ function createSyncAlarm(id, message, time) {
   };
 }
 
-function reconcileSyncAlarms(existingAlarms = [], nextSyncAlarms = []) {
-  const nonSyncAlarms = existingAlarms.filter((alarm) => !String(alarm?.id || "").startsWith("sync-"));
-  return [...nonSyncAlarms, ...nextSyncAlarms];
+function appendSyncAlarmHistory(existingAlarms = [], nextSyncAlarms = [], previousActiveWarnings = []) {
+  const previousActiveIds = new Set(
+    previousActiveWarnings.map((alarm) => String(alarm?.id || "")).filter(Boolean),
+  );
+
+  const newHistoryEntries = nextSyncAlarms
+    .filter((alarm) => !previousActiveIds.has(String(alarm?.id || "")))
+    .map((alarm) => ({
+      ...alarm,
+      id: `${alarm.id}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    }));
+
+  return [...existingAlarms, ...newHistoryEntries];
 }
 
 function resolveExpectedCatalyticState(expected, referenceDate = new Date()) {
@@ -242,9 +252,13 @@ export function buildCatalyticPayload(currentPayload, nextState) {
 
 function reconcileCatalyticSync(device, telemetryPayload, telemetryTime) {
   const expected = device.syncState?.expected;
+  const previousActiveWarnings = Array.isArray(device.syncState?.activeWarnings)
+    ? device.syncState.activeWarnings
+    : [];
+
   if (!expected) {
     return {
-      alarms: reconcileSyncAlarms(device.alarms, []),
+      alarms: device.alarms || [],
       syncState: {
         ...(device.syncState || {}),
         telemetry: {
@@ -254,6 +268,7 @@ function reconcileCatalyticSync(device, telemetryPayload, telemetryTime) {
           modes: normalizeCatalyticModeMinutes(telemetryPayload.modes),
           lastTelemetryAt: telemetryPayload.lastTelemetryAt ?? telemetryTime,
         },
+        activeWarnings: [],
         status: "idle",
         lastCheckedAt: telemetryTime,
       },
@@ -313,7 +328,7 @@ function reconcileCatalyticSync(device, telemetryPayload, telemetryTime) {
   }
 
   return {
-    alarms: reconcileSyncAlarms(device.alarms, nextSyncAlarms),
+    alarms: appendSyncAlarmHistory(device.alarms || [], nextSyncAlarms, previousActiveWarnings),
     syncState: {
       ...(device.syncState || {}),
       expected,
@@ -322,8 +337,9 @@ function reconcileCatalyticSync(device, telemetryPayload, telemetryTime) {
         countMode: telemetryPayload.countMode,
         restSeconds: telemetryPayload.restSeconds,
         modes: telemetryModes,
-        lastTelemetryAt: telemetryPayload.lastTelemetryAt ?? telemetryTime,
-      },
+          lastTelemetryAt: telemetryPayload.lastTelemetryAt ?? telemetryTime,
+        },
+      activeWarnings: nextSyncAlarms,
       status: nextSyncAlarms.length > 0 ? "warning" : "matched",
       lastCheckedAt: telemetryTime,
     },
