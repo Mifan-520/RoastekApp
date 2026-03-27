@@ -134,6 +134,7 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
   };
 
   const handleModeChange = (modeIndex: number) => {
+    if (isRunning) return; // 运行中不响应模式切换
     setSelectedMode(modeIndex);
     setEditingMode(null);
     onControlChange?.("switch-mode", modeIndex + 1);

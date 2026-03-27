@@ -199,6 +199,9 @@ function applyCatalyticCommandLocally(device, command, issuedAt) {
 
   switch (command.command) {
     case "setMode":
+      if (toFiniteNumber(currentPayload.countMode, 0) !== 0) {
+        return device;
+      }
       nextPayload = buildCatalyticPayload(currentPayload, {
         currentMode: selectedMode,
         countMode: 0,

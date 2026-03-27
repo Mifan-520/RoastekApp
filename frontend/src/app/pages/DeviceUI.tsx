@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "react-router";
-import { AlertTriangle, ChevronLeft, Fan, Gauge, LayoutTemplate, Power, X } from "lucide-react";
+import { AlertTriangle, ChevronLeft, Fan, Gauge, LayoutTemplate, Power, RotateCcw, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import {
@@ -335,14 +335,26 @@ export function DeviceUI() {
               <div className="mt-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
                 <div className="flex items-start gap-3">
                   <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-                  <div className="flex-1 font-bold">数据不同步，建议复位！</div>
+                  <div className="flex-1 font-bold">数据不同步，建议重置！</div>
+                </div>
+                <div className="flex gap-2 mt-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      handleControlChange("reset");
+                    }}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-amber-600/60 hover:bg-amber-500/60 text-white text-sm font-bold transition-colors"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    重置
+                  </button>
                   <button
                     type="button"
                     aria-label="关闭同步警告"
                     onClick={() => setIsSyncWarningDismissed(true)}
-                    className="rounded-full p-1 text-amber-100/80 transition-colors hover:bg-amber-400/10 hover:text-amber-50"
+                    className="rounded-xl px-3 py-2 text-amber-100/80 transition-colors hover:bg-amber-400/10 hover:text-amber-50 text-sm"
                   >
-                    <X className="h-4 w-4" />
+                    忽略
                   </button>
                 </div>
               </div>
