@@ -53,7 +53,7 @@ function clampModeIndex(mode: number | undefined): number {
   return Math.min(3, Math.max(0, Math.round(normalized) - 1));
 }
 
-export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConverterHMIProps) {
+export function CatalyticConverterHMI({ data, syncState, onControlChange }: CatalyticConverterHMIProps) {
   const [modeParams, setModeParams] = useState<ModeParams[]>(
     () => data.modes && data.modes.length > 0 ? data.modes : DEFAULT_MODES,
   );
@@ -114,8 +114,16 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
   });
   const effectiveCountMode: 0 | 1 | 2 = countdownState.phase === 1 || countdownState.phase === 2 ? countdownState.phase : 0;
   const isRunning = countdownState.running;
-  const isEffectivelyRunning = telemetryCountMode !== 0 || isRunning;
+  const expectedCountMode = syncState?.expected?.countMode;
+  const expectedMode = syncState?.expected?.currentMode;
+  const isSyncLocked =
+    (syncState?.status === "pending" || syncState?.status === "warning")
+    && typeof expectedCountMode === "number"
+    && expectedCountMode !== 0;
+  const isEffectivelyRunning = telemetryCountMode !== 0 || isRunning || isSyncLocked;
+  const shouldShowReset = isEffectivelyRunning || (syncState?.status === "warning" && expectedCountMode !== undefined);
   const powerOn = data.powerOn ?? data.controls?.find((control) => control.id === "power")?.active ?? isEffectivelyRunning;
+  const lockedModeIndex = typeof expectedMode === "number" ? clampModeIndex(expectedMode) : actualModeIndex;
 
   const displayFireTime = isViewingActiveMode && effectiveCountMode === 1
     ? countdownState.fireSeconds
@@ -135,7 +143,7 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
   };
 
   const handleModeChange = (modeIndex: number) => {
-    if (isEffectivelyRunning) return; // 运行中严格不响应模式切换
+    if (isEffectivelyRunning) return;
     setSelectedMode(modeIndex);
     setEditingMode(null);
     onControlChange?.("switch-mode", modeIndex + 1);
@@ -189,6 +197,9 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
         {[0, 1, 2, 3].map((idx) => (
           <button
             key={idx}
+            type="button"
+            disabled={isEffectivelyRunning}
+            aria-disabled={isEffectivelyRunning}
             onClick={() => handleModeChange(idx)}
             className={`flex-1 py-3 px-4 rounded-xl text-sm font-bold transition-all ${
               selectedMode === idx
@@ -265,15 +276,15 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
 
         <div
           className={`mb-4 p-4 rounded-xl bg-[#231F1F] border border-[#3a3535] ${
-            !isRunning ? "cursor-pointer hover:bg-[#2a2828] transition-colors" : ""
+            !isEffectivelyRunning ? "cursor-pointer hover:bg-[#2a2828] transition-colors" : "opacity-80"
           }`}
-          onClick={!isRunning ? startEditing : undefined}
+          onClick={!isEffectivelyRunning ? startEditing : undefined}
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-slate-400 flex items-center gap-2">
               <Timer className="w-4 h-4" />
               点火倒计时
-              {!isRunning ? <Pencil className="w-3 h-3 text-slate-500" /> : null}
+              {!isEffectivelyRunning ? <Pencil className="w-3 h-3 text-slate-500" /> : null}
             </span>
             <span className={`text-2xl font-mono font-bold ${
               isViewingActiveMode && effectiveCountMode === 1 ? "text-rose-400 animate-pulse" : "text-slate-300"
@@ -295,15 +306,15 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
 
         <div
           className={`mb-6 p-4 rounded-xl bg-[#231F1F] border border-[#3a3535] ${
-            !isRunning ? "cursor-pointer hover:bg-[#2a2828] transition-colors" : ""
+            !isEffectivelyRunning ? "cursor-pointer hover:bg-[#2a2828] transition-colors" : "opacity-80"
           }`}
-          onClick={!isRunning ? startEditing : undefined}
+          onClick={!isEffectivelyRunning ? startEditing : undefined}
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-slate-400 flex items-center gap-2">
               <Timer className="w-4 h-4" />
               关机倒计时
-              {!isRunning ? <Pencil className="w-3 h-3 text-slate-500" /> : null}
+              {!isEffectivelyRunning ? <Pencil className="w-3 h-3 text-slate-500" /> : null}
             </span>
             <span className={`text-2xl font-mono font-bold ${
               isViewingActiveMode && effectiveCountMode === 2 ? "text-amber-400 animate-pulse" : "text-slate-300"
@@ -323,8 +334,9 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
           </div>
         </div>
 
-        {isEffectivelyRunning ? (
+        {shouldShowReset ? (
           <button
+            type="button"
             onClick={handleReset}
             className="w-full flex items-center justify-center gap-2 py-4 rounded-xl text-base font-bold transition-all bg-[#231F1F] text-white hover:bg-[#2a2828] border border-[#3a3535]"
           >
@@ -334,6 +346,7 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
         ) : (
           <div className="flex gap-3 w-full">
             <button
+              type="button"
               onClick={handleStart}
               className="flex-[2] flex items-center justify-center gap-2 py-4 rounded-xl text-base font-bold transition-all bg-[#be123c] text-white hover:bg-[#9f1239] shadow-lg"
             >
@@ -341,6 +354,7 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
               启动
             </button>
             <button
+              type="button"
               onClick={handleReset}
               className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl text-base font-bold transition-all bg-[#231F1F] text-white hover:bg-[#2a2828] border border-[#3a3535]"
             >
@@ -349,6 +363,11 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
             </button>
           </div>
         )}
+        {isEffectivelyRunning ? (
+          <p className="text-xs text-slate-400 text-center">
+            设备运行或等待同步期间已锁定模式切换与参数编辑，当前锁定模式为模式{lockedModeIndex + 1}
+          </p>
+        ) : null}
       </div>
     </div>
   );

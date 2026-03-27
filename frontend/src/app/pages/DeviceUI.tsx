@@ -362,7 +362,7 @@ export function DeviceUI() {
           </div>
         ) : null}
         <ErrorBanner error={pageError} />
-        <HMIComponent data={config.payload} onControlChange={handleControlChange} />
+        <HMIComponent data={config.payload} syncState={syncState} onControlChange={handleControlChange} />
       </div>
     );
   }

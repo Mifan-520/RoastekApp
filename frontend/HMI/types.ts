@@ -61,6 +61,37 @@ export interface HMIDataShape {
   frequency?: HMIFrequency;
 }
 
+export interface HMISyncExpectedState {
+  currentMode: number;
+  countMode: number;
+  baseRestSeconds: number;
+  closeSeconds?: number;
+  modes?: ModeParams[];
+  updatedAt: string;
+  sourceCommand: string;
+  toleranceSeconds: number;
+}
+
+export interface HMISyncTelemetryState {
+  currentMode: number;
+  countMode: number;
+  restSeconds: number;
+  modes?: ModeParams[];
+  lastTelemetryAt?: string;
+}
+
+export interface HMISyncState {
+  status: "idle" | "pending" | "matched" | "warning";
+  lastCheckedAt?: string;
+  lastCommand?: {
+    command: string;
+    params: Record<string, unknown>;
+    issuedAt: string;
+  };
+  expected?: HMISyncExpectedState;
+  telemetry?: HMISyncTelemetryState;
+}
+
 export type HMIControlValue =
   | boolean
   | number
@@ -77,6 +108,7 @@ export interface HMIComponentProps<TData extends HMIDataShape = HMIDataShape> {
   deviceId?: string;
   deviceName?: string;
   config?: DeviceConfig;
+  syncState?: HMISyncState | null;
   onConfigChange?: (config: DeviceConfig) => void;
   onControlChange?: HMIControlChangeHandler;
 }
