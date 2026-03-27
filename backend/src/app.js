@@ -2,6 +2,8 @@ import cors from "cors";
 import { randomUUID } from "node:crypto";
 import express from "express";
 import { config } from "./config.js";
+import { publishCommand } from "./mqtt-client.js";
+import { buildCatalyticPayload, CATALYTIC_SYNC_TOLERANCE_SECONDS } from "./mqtt-handler.js";
 import { createSeedUsers } from "./data/users.js";
 import {
   checkStorageHealth,
@@ -111,6 +113,7 @@ function serializeDevice(device) {
     boundAt: normalizeOptionalTimestamp(device.boundAt),
     connectionHistory: device.connectionHistory || [],
     alarms: device.alarms || [],
+    syncState: device.syncState || null,
     config: device.config ? { ...device.config } : null,
   };
 }
@@ -129,8 +132,172 @@ function resetDevice(device) {
   device.lastActive = null;
   device.lastSeenAt = null;
   device.config = null;
+  device.syncState = null;
   device.updatedAt = timestamp;
   device.boundAt = null;
+}
+
+function toFiniteNumber(value, fallback = 0) {
+  const normalized = Number(value);
+  return Number.isFinite(normalized) ? normalized : fallback;
+}
+
+function normalizeCatalyticModes(modes, fallbackModes = []) {
+  const safeFallback = Array.isArray(fallbackModes) && fallbackModes.length > 0
+    ? fallbackModes
+    : [
+      { fireMinutes: 5, closeMinutes: 3 },
+      { fireMinutes: 5, closeMinutes: 3 },
+      { fireMinutes: 5, closeMinutes: 3 },
+      { fireMinutes: 5, closeMinutes: 3 },
+    ];
+  const sourceModes = Array.isArray(modes) && modes.length > 0 ? modes : safeFallback;
+
+  return [0, 1, 2, 3].map((index) => {
+    const mode = sourceModes[index] ?? safeFallback[index] ?? safeFallback[0];
+    return {
+      fireMinutes: toFiniteNumber(mode.fireMinutes, safeFallback[index]?.fireMinutes ?? 5),
+      closeMinutes: toFiniteNumber(mode.closeMinutes, safeFallback[index]?.closeMinutes ?? 3),
+    };
+  });
+}
+
+function createCatalyticSyncState(payload, command, issuedAt) {
+  const modes = normalizeCatalyticModes(payload.modes);
+  const activeMode = modes[Math.max(0, Math.min(3, Math.round(toFiniteNumber(payload.currentMode, 1)) - 1))] ?? modes[0];
+
+  return {
+    status: "pending",
+    lastCommand: {
+      command: command.command,
+      params: command.params ?? {},
+      issuedAt,
+    },
+    expected: {
+      currentMode: Math.round(toFiniteNumber(payload.currentMode, 1)),
+      countMode: toFiniteNumber(payload.countMode, 0),
+      baseRestSeconds: Math.max(0, Math.round(toFiniteNumber(payload.restSeconds, 0))),
+      closeSeconds: Math.round(activeMode.closeMinutes * 60),
+      modes,
+      updatedAt: issuedAt,
+      sourceCommand: command.command,
+      toleranceSeconds: CATALYTIC_SYNC_TOLERANCE_SECONDS,
+    },
+  };
+}
+
+function applyCatalyticCommandLocally(device, command, issuedAt) {
+  const currentPayload = device.config?.payload || {};
+  const modes = normalizeCatalyticModes(currentPayload.modes);
+  const params = command.params && typeof command.params === "object" ? command.params : {};
+  const selectedMode = Math.min(4, Math.max(1, Math.round(toFiniteNumber(params.mode, toFiniteNumber(currentPayload.currentMode, 1)))));
+  const activeMode = modes[selectedMode - 1] ?? modes[0];
+  const fireSeconds = Math.max(0, Math.round(toFiniteNumber(params.fireSec, activeMode.fireMinutes * 60)));
+  const closeSeconds = Math.max(0, Math.round(toFiniteNumber(params.closeSec, activeMode.closeMinutes * 60)));
+
+  let nextPayload = currentPayload;
+
+  switch (command.command) {
+    case "setMode":
+      nextPayload = buildCatalyticPayload(currentPayload, {
+        currentMode: selectedMode,
+        countMode: 0,
+        restSeconds: 0,
+        modes,
+        powerOn: false,
+      });
+      break;
+    case "setModeParams": {
+      const nextModes = [1, 2, 3, 4].map((modeIndex) => {
+        const currentMode = modes[modeIndex - 1] ?? modes[0];
+        const nextFireSeconds = toFiniteNumber(params[`mode${modeIndex}FireSec`], currentMode.fireMinutes * 60);
+        const nextCloseSeconds = toFiniteNumber(params[`mode${modeIndex}CloseSec`], currentMode.closeMinutes * 60);
+        return {
+          fireMinutes: nextFireSeconds / 60,
+          closeMinutes: nextCloseSeconds / 60,
+        };
+      });
+
+      nextPayload = buildCatalyticPayload(currentPayload, {
+        currentMode: selectedMode,
+        countMode: 0,
+        restSeconds: 0,
+        modes: nextModes,
+        powerOn: false,
+      });
+      break;
+    }
+    case "setTime": {
+      const mode = Math.min(4, Math.max(1, Math.round(toFiniteNumber(params.mode ?? params.m, selectedMode))));
+      const currentMode = modes[mode - 1] ?? modes[0];
+      const nextModes = modes.map((item, index) => ({ ...item }));
+      nextModes[mode - 1] = {
+        fireMinutes: toFiniteNumber(params.fireSec ?? params.f, currentMode.fireMinutes * 60) / 60,
+        closeMinutes: toFiniteNumber(params.closeSec ?? params.c, currentMode.closeMinutes * 60) / 60,
+      };
+
+      nextPayload = buildCatalyticPayload(currentPayload, {
+        currentMode: mode,
+        countMode: 0,
+        restSeconds: 0,
+        modes: nextModes,
+        powerOn: false,
+      });
+      break;
+    }
+    case "start":
+      nextPayload = buildCatalyticPayload(currentPayload, {
+        currentMode: selectedMode,
+        countMode: 1,
+        restSeconds: fireSeconds,
+        modes,
+        powerOn: true,
+      });
+      break;
+    case "stop":
+    case "reset":
+      nextPayload = buildCatalyticPayload(currentPayload, {
+        currentMode: selectedMode,
+        countMode: 0,
+        restSeconds: 0,
+        modes,
+        powerOn: false,
+      });
+      break;
+    default:
+      return device;
+  }
+
+  return {
+    ...device,
+    config: device.config
+      ? {
+        ...device.config,
+        payload: nextPayload,
+      }
+      : device.config,
+    syncState: createCatalyticSyncState(nextPayload, command, issuedAt),
+    updatedAt: issuedAt,
+  };
+}
+
+function applyLocalCommandState(device, command, issuedAt) {
+  if (!device?.config || (device.type !== "三元催化" && device.type !== "催化设备")) {
+    return {
+      ...device,
+      syncState: {
+        status: "pending",
+        lastCommand: {
+          command: command.command,
+          params: command.params ?? {},
+          issuedAt,
+        },
+      },
+      updatedAt: issuedAt,
+    };
+  }
+
+  return applyCatalyticCommandLocally(device, command, issuedAt);
 }
 
 function normalizeClaimCode(value) {
@@ -156,6 +323,7 @@ export async function createApp(options = {}) {
   const loadGroupsFn = options.loadGroups ?? loadGroups;
   const saveGroupsFn = options.saveGroups ?? saveGroups;
   const checkStorageHealthFn = options.checkStorageHealth ?? checkStorageHealth;
+  const publishCommandFn = options.publishCommandFn ?? publishCommand;
   let devices = await loadDevicesFn();
   let users = await loadUsersFn();
   let groups = await loadGroupsFn();
@@ -641,6 +809,57 @@ export async function createApp(options = {}) {
     }
 
     res.status(204).send();
+  });
+
+  app.post("/api/devices/:id/command", requireAuth, async (req, res) => {
+    const ownedDevice = getOwnedDevice(req, res);
+
+    if (!ownedDevice) {
+      return;
+    }
+
+    const commandName = String(req.body?.command || "").trim();
+    const params = req.body?.params;
+
+    if (!commandName) {
+      res.status(400).json({ message: "命令名称不能为空" });
+      return;
+    }
+
+    if (params !== undefined && (typeof params !== "object" || Array.isArray(params) || params === null)) {
+      res.status(400).json({ message: "命令参数必须是对象" });
+      return;
+    }
+
+    const command = params === undefined
+      ? { command: commandName }
+      : { command: commandName, params };
+
+    try {
+      await publishCommandFn(ownedDevice.device.id, command);
+    } catch (error) {
+      console.error("[Command] Failed to publish device command:", error?.message || error);
+      res.status(502).json({ message: "设备命令下发失败" });
+      return;
+    }
+
+    const issuedAt = nowIso();
+    const nextDevices = structuredClone(devices);
+    const nextDevice = applyLocalCommandState(nextDevices[ownedDevice.index], command, issuedAt);
+    nextDevices[ownedDevice.index] = nextDevice;
+    const persisted = await persistDevices(nextDevices, res);
+
+    if (!persisted) {
+      return;
+    }
+
+    res.status(202).json({
+      ok: true,
+      deviceId: ownedDevice.device.id,
+      command,
+      device: serializeDevice(nextDevice),
+      config: nextDevice.config ? { ...nextDevice.config } : null,
+    });
   });
 
   app.get("/api/devices/:id/config", requireAuth, (req, res) => {

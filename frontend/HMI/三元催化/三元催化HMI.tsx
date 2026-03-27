@@ -6,8 +6,9 @@
  * 仅保留模式参数编辑这一类纯前端交互状态。
  */
 import { useEffect, useState } from "react";
-import { Flame, Timer, Play, Square, Thermometer, Pencil, Check, X } from "lucide-react";
+import { Flame, Timer, Play, RotateCcw, Thermometer, Pencil, Check, X } from "lucide-react";
 import type { HMIComponentProps, HMIControlItem, ModeParams } from "../types";
+import { buildCountdownDisplayState, parseTelemetryTimestampMs } from "./countdown.js";
 
 interface CatalyticConverterData {
   modes?: ModeParams[];
@@ -16,6 +17,7 @@ interface CatalyticConverterData {
   currentMode?: number;
   countMode?: 0 | 1 | 2;
   restSeconds?: number;
+  lastTelemetryAt?: string;
   controls?: HMIControlItem[];
 }
 
@@ -29,7 +31,7 @@ const DEFAULT_MODES: ModeParams[] = [
 ];
 
 function formatTime(seconds: number): string {
-  const safeSeconds = Math.max(0, Math.round(seconds));
+  const safeSeconds = Math.max(0, Math.ceil(seconds));
   const mins = Math.floor(safeSeconds / 60);
   const secs = safeSeconds % 60;
   return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
@@ -59,6 +61,8 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
   const [editingMode, setEditingMode] = useState<number | null>(null);
   const [editFireMinutes, setEditFireMinutes] = useState(5);
   const [editCloseMinutes, setEditCloseMinutes] = useState(3);
+  const [countdownSyncedAtMs, setCountdownSyncedAtMs] = useState(() => Date.now());
+  const [countdownNowMs, setCountdownNowMs] = useState(() => Date.now());
 
   useEffect(() => {
     if (data.modes && data.modes.length > 0) {
@@ -70,40 +74,63 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
     setSelectedMode(clampModeIndex(data.currentMode));
   }, [data.currentMode]);
 
+  useEffect(() => {
+    const fallbackMs = Date.now();
+    setCountdownSyncedAtMs(parseTelemetryTimestampMs(data.lastTelemetryAt, fallbackMs));
+    setCountdownNowMs(fallbackMs);
+  }, [data.lastTelemetryAt, data.restSeconds, data.countMode, data.currentMode]);
+
   const actualModeIndex = clampModeIndex(data.currentMode);
-  const effectiveCountMode: 0 | 1 | 2 = data.countMode === 1 || data.countMode === 2 ? data.countMode : 0;
+  const telemetryCountMode: 0 | 1 | 2 = data.countMode === 1 || data.countMode === 2 ? data.countMode : 0;
   const syncedRestSeconds = Math.max(0, Math.round(Number(data.restSeconds ?? 0)));
-  const isRunning = effectiveCountMode !== 0;
   const temperature = Number(data.temperature ?? 0);
-  const powerOn = data.powerOn ?? data.controls?.find((control) => control.id === "power")?.active ?? isRunning;
 
   const currentParams = modeParams[selectedMode] ?? DEFAULT_MODES[selectedMode] ?? DEFAULT_MODES[0];
   const isViewingActiveMode = selectedMode === actualModeIndex;
+  const fireTotalSeconds = Math.round(currentParams.fireMinutes * 60);
+  const closeTotalSeconds = Math.round(currentParams.closeMinutes * 60);
+
+  useEffect(() => {
+    if (telemetryCountMode === 0) {
+      return undefined;
+    }
+
+    const timerId = window.setInterval(() => {
+      setCountdownNowMs(Date.now());
+    }, 250);
+
+    return () => {
+      window.clearInterval(timerId);
+    };
+  }, [telemetryCountMode, countdownSyncedAtMs]);
+
+  const countdownState = buildCountdownDisplayState({
+    countMode: telemetryCountMode,
+    restSeconds: syncedRestSeconds,
+    syncedAtMs: countdownSyncedAtMs,
+    nowMs: countdownNowMs,
+    fireTotalSeconds,
+    closeTotalSeconds,
+  });
+  const effectiveCountMode: 0 | 1 | 2 = countdownState.phase === 1 || countdownState.phase === 2 ? countdownState.phase : 0;
+  const isRunning = countdownState.running;
+  const powerOn = data.powerOn ?? data.controls?.find((control) => control.id === "power")?.active ?? isRunning;
 
   const displayFireTime = isViewingActiveMode && effectiveCountMode === 1
-    ? syncedRestSeconds
-    : currentParams.fireMinutes * 60;
+    ? countdownState.fireSeconds
+    : fireTotalSeconds;
   const displayCloseTime = isViewingActiveMode && effectiveCountMode === 2
-    ? syncedRestSeconds
-    : currentParams.closeMinutes * 60;
+    ? countdownState.closeSeconds
+    : closeTotalSeconds;
 
   const handleStart = () => {
     const fireSec = Math.round(currentParams.fireMinutes * 60);
     const closeSec = Math.round(currentParams.closeMinutes * 60);
-
-    if (!powerOn) {
-      onControlChange?.("power", true);
-    }
-
     onControlChange?.(`mode-${selectedMode + 1}-start`, { fireSec, closeSec });
   };
 
-  const handleStop = () => {
-    onControlChange?.(`mode-${selectedMode + 1}-stop`, true);
-
-    if (powerOn) {
-      onControlChange?.("power", false);
-    }
+  const handleReset = () => {
+    onControlChange?.("reset", { mode: selectedMode + 1 });
   };
 
   const handleModeChange = (modeIndex: number) => {
@@ -254,11 +281,11 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
           </div>
           <div className="w-full h-2 bg-[#3a3535] rounded-full overflow-hidden">
             <div
-              className={`h-full transition-all duration-300 ${
+              className={`h-full transition-[width] duration-200 ease-linear ${
                 isViewingActiveMode && effectiveCountMode === 1 ? "bg-rose-500" : "bg-[#4a4545]"
               }`}
               style={{
-                width: `${Math.min((displayFireTime / Math.max(currentParams.fireMinutes * 60, 1)) * 100, 100)}`,
+                width: `${isViewingActiveMode ? countdownState.fireProgressPercent : 100}%`,
               }}
             />
           </div>
@@ -284,18 +311,18 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
           </div>
           <div className="w-full h-2 bg-[#3a3535] rounded-full overflow-hidden">
             <div
-              className={`h-full transition-all duration-300 ${
+              className={`h-full transition-[width] duration-200 ease-linear ${
                 isViewingActiveMode && effectiveCountMode === 2 ? "bg-amber-500" : "bg-[#4a4545]"
               }`}
               style={{
-                width: `${Math.min((displayCloseTime / Math.max(currentParams.closeMinutes * 60, 1)) * 100, 100)}`,
+                width: `${isViewingActiveMode ? countdownState.closeProgressPercent : 100}%`,
               }}
             />
           </div>
         </div>
 
         <button
-          onClick={isRunning ? handleStop : handleStart}
+          onClick={isRunning ? handleReset : handleStart}
           className={`w-full flex items-center justify-center gap-2 py-4 rounded-xl text-base font-bold transition-all ${
             isRunning
               ? "bg-[#231F1F] text-white hover:bg-[#2a2828] border border-[#3a3535]"
@@ -304,8 +331,8 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
         >
           {isRunning ? (
             <>
-              <Square className="w-5 h-5" />
-              停止
+              <RotateCcw className="w-5 h-5" />
+              复位
             </>
           ) : (
             <>

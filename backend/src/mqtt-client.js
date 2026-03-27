@@ -142,7 +142,7 @@ export function publishCommand(deviceId, command) {
   }
 
   const topic = `devices/${deviceId}/command`;
-  const payload = JSON.stringify(command);
+  const payload = formatCommandPayload(command);
   
   client.publish(topic, payload, { qos: 1 }, (err) => {
     if (err) {
@@ -151,6 +151,10 @@ export function publishCommand(deviceId, command) {
       console.log(`[MQTT] Published command to ${deviceId}:`, command);
     }
   });
+}
+
+export function formatCommandPayload(command) {
+  return `${JSON.stringify(command)}\n`;
 }
 
 /**

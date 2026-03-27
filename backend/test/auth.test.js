@@ -49,21 +49,21 @@ test("rejects unauthenticated device list access", async () => {
   assert.equal(response.status, 401);
 });
 
-test("seeds three Fujian Sanxiyan devices bound with configs", async () => {
+test("seeds eleven devices with four pre-bound for Fujian Sanxiyan", async () => {
   const app = await buildApp();
   const session = await loginAs(app, "admin", "admin");
 
-  assert.equal(seedDevices.length, 3);
+  assert.equal(seedDevices.length, 11);
 
   const response = await request(app)
     .get("/api/devices")
     .set("Authorization", `Bearer ${session.token}`);
 
   assert.equal(response.status, 200);
-  assert.equal(response.body.devices.length, 3);
+  assert.equal(response.body.devices.length, 4);
   assert.deepEqual(
     response.body.devices.map((device) => device.name),
-    ["Z字梯", "生豆处理站", "智能仓储"]
+    ["Z字梯", "生豆处理站", "智能仓储", "三元催化"]
   );
   assert.equal(response.body.devices.every((device) => device.config && device.config.payload), true);
 });
@@ -74,7 +74,7 @@ test("claims an unbound device with a fixed code and custom name", async () => {
   const session = await loginAs(app, "user", "user");
 
   const releaseResponse = await request(app)
-    .delete("/api/devices/dev-bean-001")
+    .delete("/api/devices/SD-001")
     .set("Authorization", `Bearer ${adminSession.token}`);
 
   assert.equal(releaseResponse.status, 204);
@@ -104,7 +104,7 @@ test("prevents claiming an already bound device until it is deleted", async () =
   const adminSession = await loginAs(app, "admin", "admin");
 
   const releaseResponse = await request(app)
-    .delete("/api/devices/dev-bean-001")
+    .delete("/api/devices/SD-001")
     .set("Authorization", `Bearer ${adminSession.token}`);
 
   assert.equal(releaseResponse.status, 204);
@@ -194,7 +194,7 @@ test("returns null when the device has no config", async () => {
   const session = await loginAs(app, "user", "user");
 
   const releaseResponse = await request(app)
-    .delete("/api/devices/dev-bean-001")
+    .delete("/api/devices/SD-001")
     .set("Authorization", `Bearer ${adminSession.token}`);
 
   assert.equal(releaseResponse.status, 204);
@@ -219,7 +219,7 @@ test("returns structured config payload for seeded config screens", async () => 
   const session = await loginAs(app, "admin", "admin");
 
   const configResponse = await request(app)
-    .get("/api/devices/dev-zladder-001/config")
+    .get("/api/devices/ZZ-001/config")
     .set("Authorization", `Bearer ${session.token}`);
 
   assert.equal(configResponse.status, 200);
@@ -304,21 +304,21 @@ test("keeps in-memory device state unchanged when persistence fails", async () =
   const session = await loginAs(app, "admin", "admin");
 
   const beforeResponse = await request(app)
-    .get("/api/devices/dev-bean-001")
+    .get("/api/devices/SD-001")
     .set("Authorization", `Bearer ${session.token}`);
 
   assert.equal(beforeResponse.status, 200);
   const beforeName = beforeResponse.body.device.name;
 
   const updateResponse = await request(app)
-    .patch("/api/devices/dev-bean-001")
+    .patch("/api/devices/SD-001")
     .set("Authorization", `Bearer ${session.token}`)
     .send({ name: "保存失败后脏内存", address: "测试地址" });
 
   assert.equal(updateResponse.status, 500);
 
   const afterResponse = await request(app)
-    .get("/api/devices/dev-bean-001")
+    .get("/api/devices/SD-001")
     .set("Authorization", `Bearer ${session.token}`);
 
   assert.equal(afterResponse.status, 200);
@@ -380,13 +380,13 @@ test("deletes a device alarm by id", async () => {
   const session = await loginAs(app, "admin", "admin");
 
   const response = await request(app)
-    .delete("/api/devices/dev-bean-001/alarms/alarm-bean-001")
+    .delete("/api/devices/SD-001/alarms/alarm-bean-001")
     .set("Authorization", `Bearer ${session.token}`);
 
   assert.equal(response.status, 204);
 
   const deviceResponse = await request(app)
-    .get("/api/devices/dev-bean-001")
+    .get("/api/devices/SD-001")
     .set("Authorization", `Bearer ${session.token}`);
 
   assert.equal(deviceResponse.status, 200);
@@ -402,7 +402,7 @@ test("returns 500 when persisting mutated devices fails", async () => {
   const session = await loginAs(app, "admin", "admin");
 
   const updateResponse = await request(app)
-    .patch("/api/devices/dev-bean-001")
+    .patch("/api/devices/SD-001")
     .set("Authorization", `Bearer ${session.token}`)
     .send({ name: "保存失败测试设备", address: "测试地址" });
 
@@ -491,7 +491,7 @@ test("keeps in-memory group state unchanged when persistence fails", async () =>
         id: "group-fixed",
         userId: "user-admin",
         name: "原分组",
-        deviceIds: ["dev-zladder-001"],
+        deviceIds: ["ZZ-001"],
       },
     ]),
   });
@@ -500,7 +500,7 @@ test("keeps in-memory group state unchanged when persistence fails", async () =>
   const updateResponse = await request(app)
     .patch("/api/groups/group-fixed")
     .set("Authorization", `Bearer ${session.token}`)
-    .send({ name: "失败后脏内存", deviceIds: ["dev-bean-001"] });
+    .send({ name: "失败后脏内存", deviceIds: ["SD-001"] });
 
   assert.equal(updateResponse.status, 500);
   assert.equal(updateResponse.body.message, "分组信息保存失败");
@@ -511,7 +511,7 @@ test("keeps in-memory group state unchanged when persistence fails", async () =>
 
   assert.equal(groupsResponse.status, 200);
   assert.equal(groupsResponse.body.groups[0].name, "原分组");
-  assert.deepEqual(groupsResponse.body.groups[0].deviceIds, ["dev-zladder-001"]);
+  assert.deepEqual(groupsResponse.body.groups[0].deviceIds, ["ZZ-001"]);
 });
 
 test("persists groups across app restart", async () => {

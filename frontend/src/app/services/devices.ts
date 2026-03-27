@@ -56,6 +56,42 @@ export interface DeviceUiPayload {
   frequency?: { current: number; target: number };
 }
 
+export interface DeviceCommandRequest {
+  command: string;
+  params?: Record<string, unknown>;
+}
+
+export interface DeviceSyncExpectedStateRecord {
+  currentMode: number;
+  countMode: number;
+  baseRestSeconds: number;
+  closeSeconds?: number;
+  modes?: Array<{ fireMinutes: number; closeMinutes: number }>;
+  updatedAt: string;
+  sourceCommand: string;
+  toleranceSeconds: number;
+}
+
+export interface DeviceSyncTelemetryStateRecord {
+  currentMode: number;
+  countMode: number;
+  restSeconds: number;
+  modes?: Array<{ fireMinutes: number; closeMinutes: number }>;
+  lastTelemetryAt?: string;
+}
+
+export interface DeviceSyncStateRecord {
+  status: "idle" | "pending" | "matched" | "warning";
+  lastCheckedAt?: string;
+  lastCommand?: {
+    command: string;
+    params: Record<string, unknown>;
+    issuedAt: string;
+  };
+  expected?: DeviceSyncExpectedStateRecord;
+  telemetry?: DeviceSyncTelemetryStateRecord;
+}
+
 export interface DeviceAlarmRecord {
   id: string;
   message: string;
@@ -85,6 +121,7 @@ export interface DeviceRecord {
   boundAt: string | null;
   connectionHistory: DeviceConnectionRecord[];
   alarms: DeviceAlarmRecord[];
+  syncState: DeviceSyncStateRecord | null;
   config: DeviceConfigRecord | null;
 }
 
@@ -161,6 +198,21 @@ export async function updateDeviceConfigPayload(deviceId: string, payload: Devic
   });
   const result = await parseResponse<{ config: DeviceConfigRecord }>(response);
   return result.config;
+}
+
+export async function sendDeviceCommand(deviceId: string, command: DeviceCommandRequest) {
+  const response = await authRequest(`/devices/${deviceId}/command`, {
+    method: "POST",
+    body: JSON.stringify(command),
+  });
+  const payload = await parseResponse<{
+    ok: boolean;
+    deviceId: string;
+    command: DeviceCommandRequest;
+    device: DeviceRecord;
+    config: DeviceConfigRecord | null;
+  }>(response);
+  return payload;
 }
 
 export async function deleteAlarm(deviceId: string, alarmId: string) {

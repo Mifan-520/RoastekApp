@@ -145,9 +145,9 @@ git commit -m "Add standalone HMI frontend shell"
 ### Task 4: Introduce per-device HMI manifests
 
 **Files:**
-- Create: `HMI/devices/dev-001/manifest.json`
-- Create: `HMI/devices/dev-002/manifest.json`
-- Create: `HMI/devices/dev-003/manifest.json`
+- Create: `HMI/devices/ZZ-001/manifest.json`
+- Create: `HMI/devices/SD-001/manifest.json`
+- Create: `HMI/devices/ZN-001/manifest.json`
 - Modify: `HMI/backend/src/hmi-registry.js`
 - Test: `HMI/backend/test/hmi.test.js`
 
@@ -177,7 +177,7 @@ Expected: PASS.
 **Step 5: Commit**
 
 ```bash
-git add HMI/devices/dev-001/manifest.json HMI/devices/dev-002/manifest.json HMI/devices/dev-003/manifest.json HMI/backend/src/hmi-registry.js HMI/backend/test/hmi.test.js
+git add HMI/devices/ZZ-001/manifest.json HMI/devices/SD-001/manifest.json HMI/devices/ZN-001/manifest.json HMI/backend/src/hmi-registry.js HMI/backend/test/hmi.test.js
 git commit -m "Add device-scoped HMI manifests"
 ```
 

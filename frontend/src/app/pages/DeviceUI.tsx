@@ -1,10 +1,11 @@
 import { useNavigate, useParams } from "react-router";
-import { ChevronLeft, Fan, Gauge, LayoutTemplate, Power } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { AlertTriangle, ChevronLeft, Fan, Gauge, LayoutTemplate, Power, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from "recharts";
 import {
   getDevice,
   getDeviceConfig,
+  sendDeviceCommand,
   updateDeviceConfigPayload,
   type DeviceRecord,
   type DeviceConfigRecord,
@@ -13,6 +14,7 @@ import {
 } from "../services/devices";
 import { getHMIComponent } from "../../../HMI";
 import { useAutoRefresh, useVisibilityRefresh } from "../hooks/useAutoRefresh";
+import { buildModeParamsCommandPayload } from "../utils/device-commands.js";
 
 const STYLED_COLORS = ["#be123c", "#f43f5e", "#ffe4e6"];
 
@@ -39,6 +41,12 @@ function ControlIcon({ icon, active }: { icon?: DeviceUiControlItem["icon"]; act
   return <Power className={className} />;
 }
 
+function formatSyncPhase(countMode?: number) {
+  if (countMode === 1) return "点火中";
+  if (countMode === 2) return "关机中";
+  return "待机";
+}
+
 export function DeviceUI() {
   const { id, configId } = useParams();
   const navigate = useNavigate();
@@ -55,6 +63,20 @@ export function DeviceUI() {
     () => (config?.payload?.chart?.data ?? []).map((item) => ({ ...item, name: item.label })),
     [config?.payload?.chart?.data],
   );
+  const syncState = device?.syncState;
+  const syncWarningAlarms = useMemo(
+    () => (device?.alarms ?? []).filter((alarm) => String(alarm.id || "").startsWith("sync-")),
+    [device?.alarms],
+  );
+  const syncWarningKey = useMemo(
+    () => syncWarningAlarms.map((alarm) => `${alarm.id}:${alarm.time}`).join("|"),
+    [syncWarningAlarms],
+  );
+  const [isSyncWarningDismissed, setIsSyncWarningDismissed] = useState(false);
+
+  useEffect(() => {
+    setIsSyncWarningDismissed(false);
+  }, [syncWarningKey]);
 
   // 自动刷新设备和配置数据
   const refreshData = useCallback(async (options?: { silent?: boolean }) => {
@@ -197,8 +219,69 @@ export function DeviceUI() {
     }
     
     try {
-      const updated = await updateDeviceConfigPayload(device.id, updatedPayload);
-      setConfig(updated);
+      if (controlId === "mode-params-update" && Array.isArray(value)) {
+        const updated = await updateDeviceConfigPayload(device.id, updatedPayload);
+        setConfig(updated);
+
+        const commandPayload = buildModeParamsCommandPayload(config.payload?.modes, value);
+        if (commandPayload) {
+          const commandResult = await sendDeviceCommand(device.id, commandPayload);
+          setDevice(commandResult.device);
+          setConfig(commandResult.config ?? updated);
+        }
+        return;
+      }
+
+      if (controlId === "switch-mode" && typeof value === "number") {
+        const commandResult = await sendDeviceCommand(device.id, {
+          command: "setMode",
+          params: { mode: value },
+        });
+        setDevice(commandResult.device);
+        setConfig(commandResult.config);
+        return;
+      }
+
+      if (controlId.endsWith("-start") && typeof value === "object" && value) {
+        const match = controlId.match(/^mode-(\d+)-start$/);
+        const params = value as { fireSec?: unknown; closeSec?: unknown };
+        const commandResult = await sendDeviceCommand(device.id, {
+          command: "start",
+          params: {
+            mode: match ? Number(match[1]) : undefined,
+            fireSec: Number(params.fireSec ?? 0),
+            closeSec: Number(params.closeSec ?? 0),
+          },
+        });
+        setDevice(commandResult.device);
+        setConfig(commandResult.config);
+        return;
+      }
+
+      if (controlId.endsWith("-stop")) {
+        const commandResult = await sendDeviceCommand(device.id, { command: "stop" });
+        setDevice(commandResult.device);
+        setConfig(commandResult.config);
+        return;
+      }
+
+      if (controlId === "reset") {
+        const resetValue = (typeof value === "object" && value !== null) ? value as { mode?: unknown } : undefined;
+        const mode = Number(resetValue?.mode);
+
+        const commandResult = await sendDeviceCommand(device.id, {
+          command: "reset",
+          params: Number.isFinite(mode) ? { mode } : undefined,
+        });
+        setDevice(commandResult.device);
+        setConfig(commandResult.config);
+        return;
+      }
+
+      if (controlId.startsWith("countdown-") && typeof value === "object") {
+        const updated = await updateDeviceConfigPayload(device.id, updatedPayload);
+        setConfig(updated);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : "控制更新失败";
       if (message.includes("未登录")) {
@@ -220,13 +303,42 @@ export function DeviceUI() {
           </button>
           <h1 className="text-[17px] font-bold tracking-tight text-white flex-1">{config.name}</h1>
         </div>
-        {pageError ? (
+        {syncState?.expected ? (
           <div className="px-6 pt-4">
-            <div className="rounded-2xl border border-amber-900/50 bg-amber-600/10 px-4 py-3 text-sm text-amber-100">
-              {pageError}
+            <div className="rounded-2xl border border-rose-900/30 bg-rose-950/20 px-4 py-3 text-sm text-rose-100">
+              <div className="space-y-1">
+                <div className="font-bold">数据同步状态</div>
+                <div className="text-xs opacity-90">
+                  下发命令：模式{syncState.expected.currentMode} / {formatSyncPhase(syncState.expected.countMode)}
+                </div>
+                {syncState.telemetry ? (
+                  <div className="text-xs opacity-75">
+                    最近状态：模式{syncState.telemetry.currentMode} / {formatSyncPhase(syncState.telemetry.countMode)}
+                  </div>
+                ) : (
+                  <div className="text-xs opacity-75">最近状态：等待设备上报</div>
+                )}
+              </div>
             </div>
+            {syncState.status === "warning" && syncWarningAlarms.length > 0 && !isSyncWarningDismissed ? (
+              <div className="mt-3 rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+                  <div className="flex-1 font-bold">数据不同步，建议复位！</div>
+                  <button
+                    type="button"
+                    aria-label="关闭同步警告"
+                    onClick={() => setIsSyncWarningDismissed(true)}
+                    className="rounded-full p-1 text-amber-100/80 transition-colors hover:bg-amber-400/10 hover:text-amber-50"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
+        <ErrorBanner error={pageError} />
         <HMIComponent data={config.payload} onControlChange={handleControlChange} />
       </div>
     );
@@ -242,13 +354,7 @@ export function DeviceUI() {
         <h1 className="text-[17px] font-bold tracking-tight text-white flex-1">{config.name}</h1>
       </div>
 
-      {pageError ? (
-        <div className="px-6 pt-4">
-          <div className="rounded-2xl border border-amber-900/50 bg-amber-600/10 px-4 py-3 text-sm text-amber-100">
-            {pageError}
-          </div>
-        </div>
-      ) : null}
+      <ErrorBanner error={pageError} />
 
       <div className="p-6 pt-4 space-y-6 flex-1">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

@@ -60,11 +60,11 @@ HMI/
     src/
     package.json
   devices/
-    dev-001/
+    ZZ-001/
       manifest.json
       ui/
       assets/
-    dev-002/
+    SD-001/
       manifest.json
       ui/
       assets/

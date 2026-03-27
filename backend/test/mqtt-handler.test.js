@@ -216,3 +216,76 @@ test("handleMqttMessage syncs updated devices back to app memory", async () => {
   assert.equal(savedSnapshots[0][0].lastActive !== null, true);
   assert.deepEqual(syncedSnapshots[0], savedSnapshots[0]);
 });
+
+test("handleMqttMessage creates sync warning when telemetry diverges from local expected state", async () => {
+  const initialDevices = [
+    {
+      id: "SY-001",
+      type: "催化设备",
+      alarms: [],
+      syncState: {
+        status: "pending",
+        expected: {
+          currentMode: 2,
+          countMode: 0,
+          baseRestSeconds: 0,
+          modes: [
+            { fireMinutes: 10, closeMinutes: 3 },
+            { fireMinutes: 9.5, closeMinutes: 4 },
+            { fireMinutes: 9, closeMinutes: 4 },
+            { fireMinutes: 0.25, closeMinutes: 0.25 },
+          ],
+          updatedAt: "2026-03-26T08:00:00.000Z",
+          sourceCommand: "setMode",
+          toleranceSeconds: 5,
+        },
+      },
+      config: {
+        payload: {
+          summary: [],
+          controls: [{ id: "power", active: false, label: "总电源", description: "已停止", icon: "power", tone: "rose" }],
+          countdowns: [{ id: "fire", value: 600 }, { id: "close", value: 180 }],
+          temperature: 14.4,
+          currentMode: 2,
+          countMode: 0,
+          restSeconds: 0,
+          modes: [
+            { fireMinutes: 10, closeMinutes: 3 },
+            { fireMinutes: 9.5, closeMinutes: 4 },
+            { fireMinutes: 9, closeMinutes: 4 },
+            { fireMinutes: 0.25, closeMinutes: 0.25 },
+          ],
+        },
+      },
+    },
+  ];
+
+  let savedDevices = null;
+  const handleMqttMessage = createMqttMessageHandler({
+    loadDevices: async () => structuredClone(initialDevices),
+    saveDevices: async (devices) => {
+      savedDevices = structuredClone(devices);
+    },
+  });
+
+  await handleMqttMessage("devices/SY-001/telemetry", {
+    temperature: 14.0,
+    mode: 1,
+    countMode: 0,
+    restSeconds: 0,
+    m1f: 600,
+    m1c: 180,
+    m2f: 570,
+    m2c: 240,
+    m3f: 540,
+    m3c: 240,
+    m4f: 15,
+    m4c: 15,
+  });
+
+  assert.equal(Array.isArray(savedDevices), true);
+  assert.equal(savedDevices[0].alarms.length, 1);
+  assert.match(savedDevices[0].alarms[0].id, /^sync-mode-/);
+  assert.match(savedDevices[0].alarms[0].message, /本地下发模式2/);
+  assert.equal(savedDevices[0].syncState.status, "warning");
+});
