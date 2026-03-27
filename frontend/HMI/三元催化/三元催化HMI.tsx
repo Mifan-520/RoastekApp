@@ -114,7 +114,8 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
   });
   const effectiveCountMode: 0 | 1 | 2 = countdownState.phase === 1 || countdownState.phase === 2 ? countdownState.phase : 0;
   const isRunning = countdownState.running;
-  const powerOn = data.powerOn ?? data.controls?.find((control) => control.id === "power")?.active ?? isRunning;
+  const isEffectivelyRunning = telemetryCountMode !== 0 || isRunning;
+  const powerOn = data.powerOn ?? data.controls?.find((control) => control.id === "power")?.active ?? isEffectivelyRunning;
 
   const displayFireTime = isViewingActiveMode && effectiveCountMode === 1
     ? countdownState.fireSeconds
@@ -134,14 +135,14 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
   };
 
   const handleModeChange = (modeIndex: number) => {
-    if (isRunning) return; // 运行中不响应模式切换
+    if (isEffectivelyRunning) return; // 运行中严格不响应模式切换
     setSelectedMode(modeIndex);
     setEditingMode(null);
     onControlChange?.("switch-mode", modeIndex + 1);
   };
 
   const startEditing = () => {
-    if (isRunning) return;
+    if (isEffectivelyRunning) return;
     setEditingMode(selectedMode);
     setEditFireMinutes(currentParams.fireMinutes);
     setEditCloseMinutes(currentParams.closeMinutes);
@@ -322,26 +323,32 @@ export function CatalyticConverterHMI({ data, onControlChange }: CatalyticConver
           </div>
         </div>
 
-        <button
-          onClick={isRunning ? handleReset : handleStart}
-          className={`w-full flex items-center justify-center gap-2 py-4 rounded-xl text-base font-bold transition-all ${
-            isRunning
-              ? "bg-[#231F1F] text-white hover:bg-[#2a2828] border border-[#3a3535]"
-              : "bg-[#be123c] text-white hover:bg-[#9f1239] shadow-lg"
-          }`}
-        >
-          {isRunning ? (
-            <>
-              <RotateCcw className="w-5 h-5" />
-              复位
-            </>
-          ) : (
-            <>
+        {isEffectivelyRunning ? (
+          <button
+            onClick={handleReset}
+            className="w-full flex items-center justify-center gap-2 py-4 rounded-xl text-base font-bold transition-all bg-[#231F1F] text-white hover:bg-[#2a2828] border border-[#3a3535]"
+          >
+            <RotateCcw className="w-5 h-5" />
+            重置
+          </button>
+        ) : (
+          <div className="flex gap-3 w-full">
+            <button
+              onClick={handleStart}
+              className="flex-[2] flex items-center justify-center gap-2 py-4 rounded-xl text-base font-bold transition-all bg-[#be123c] text-white hover:bg-[#9f1239] shadow-lg"
+            >
               <Play className="w-5 h-5" />
               启动
-            </>
-          )}
-        </button>
+            </button>
+            <button
+              onClick={handleReset}
+              className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl text-base font-bold transition-all bg-[#231F1F] text-white hover:bg-[#2a2828] border border-[#3a3535]"
+            >
+              <RotateCcw className="w-5 h-5" />
+              复位
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
