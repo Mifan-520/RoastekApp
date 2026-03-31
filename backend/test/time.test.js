@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import request from "supertest";
-import { createApp, formatShanghaiIso, markDevicesOffline, resolveDeviceLastActive, resolveDeviceStatus } from "../src/app.js";
+import { CONNECTION_HISTORY_LIMIT, createApp, formatShanghaiIso, markDevicesOffline, resolveDeviceLastActive, resolveDeviceStatus, trimConnectionHistory } from "../src/app.js";
 import { seedDevices } from "../src/data/devices.js";
 import { createSeedUsers } from "../src/data/users.js";
 import { config } from "../src/config.js";
@@ -97,6 +97,52 @@ test("markDevicesOffline appends offline connection history when device times ou
   assert.equal(nextDevices[0].connectionHistory[0].type, "offline");
   assert.equal(nextDevices[0].connectionHistory[0].label, "设备离线");
   assert.equal(nextDevices[0].connectionHistory[0].time, "2026-03-16T12:00:00+08:00");
+});
+
+test("trimConnectionHistory keeps only the most recent configured records", () => {
+  const history = Array.from({ length: CONNECTION_HISTORY_LIMIT + 5 }, (_, index) => ({
+    id: `ch-${index + 1}`,
+    type: index % 2 === 0 ? "online" : "offline",
+    time: `2026-03-16T12:${String(index).padStart(2, "0")}:00+08:00`,
+    label: index % 2 === 0 ? "设备上线" : "设备离线",
+  }));
+
+  const trimmed = trimConnectionHistory(history);
+
+  assert.equal(trimmed.length, CONNECTION_HISTORY_LIMIT);
+  assert.equal(trimmed[0].id, "ch-6");
+  assert.equal(trimmed.at(-1)?.id, `ch-${CONNECTION_HISTORY_LIMIT + 5}`);
+});
+
+test("device api returns at most 30 connection history entries", async () => {
+  const devices = structuredClone(seedDevices);
+  devices[0].connectionHistory = Array.from({ length: CONNECTION_HISTORY_LIMIT + 5 }, (_, index) => ({
+    id: `ch-${index + 1}`,
+    type: index % 2 === 0 ? "online" : "offline",
+    time: `2026-03-16T12:${String(index).padStart(2, "0")}:00+08:00`,
+    label: index % 2 === 0 ? "设备上线" : "设备离线",
+  }));
+
+  const app = await createApp({
+    loadDevices: async () => structuredClone(devices),
+    saveDevices: async (nextDevices) => {
+      devices.splice(0, devices.length, ...structuredClone(nextDevices));
+    },
+    loadUsers: async () => createSeedUsers(config),
+    saveUsers: async () => {},
+    loadGroups: async () => [],
+    saveGroups: async () => {},
+  });
+  const adminSession = await loginAs(app, "admin", "admin");
+
+  const response = await request(app)
+    .get(`/api/devices/${devices[0].id}`)
+    .set("Authorization", `Bearer ${adminSession.token}`);
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.device.connectionHistory.length, CONNECTION_HISTORY_LIMIT);
+  assert.equal(response.body.device.connectionHistory[0].id, "ch-6");
+  assert.equal(response.body.device.connectionHistory.at(-1).id, `ch-${CONNECTION_HISTORY_LIMIT + 5}`);
 });
 
 test("claim response returns a canonical lastActive timestamp", async () => {

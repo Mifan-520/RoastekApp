@@ -16,6 +16,7 @@ import {
 } from "./storage.js";
 
 const SHANGHAI_OFFSET_MS = 8 * 60 * 60 * 1000;
+export const CONNECTION_HISTORY_LIMIT = 30;
 
 export function formatShanghaiIso(date = new Date()) {
   const adjusted = new Date(date.getTime() + SHANGHAI_OFFSET_MS);
@@ -88,6 +89,15 @@ export function resolveDeviceStatus(device, now = new Date(), offlineTimeoutMs =
   return nowMs - lastSeenMs > offlineTimeoutMs ? "offline" : "online";
 }
 
+export function trimConnectionHistory(connectionHistory = [], limit = CONNECTION_HISTORY_LIMIT) {
+  if (!Array.isArray(connectionHistory)) {
+    return [];
+  }
+
+  const normalizedLimit = Math.max(1, Number(limit) || CONNECTION_HISTORY_LIMIT);
+  return connectionHistory.slice(-normalizedLimit);
+}
+
 export function markDevicesOffline(devices, now = new Date(), offlineTimeoutMs = config.deviceOfflineTimeoutMs) {
   if (!Array.isArray(devices) || devices.length === 0) {
     return devices;
@@ -111,7 +121,7 @@ export function markDevicesOffline(devices, now = new Date(), offlineTimeoutMs =
       ...device,
       status: "offline",
       updatedAt: offlineTime,
-      connectionHistory: [
+      connectionHistory: trimConnectionHistory([
         ...(device.connectionHistory || []),
         {
           id: `ch-${referenceDate.getTime()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -119,7 +129,7 @@ export function markDevicesOffline(devices, now = new Date(), offlineTimeoutMs =
           time: offlineTime,
           label: "设备离线",
         },
-      ],
+      ]),
     };
   });
 
@@ -149,7 +159,7 @@ function serializeDevice(device) {
     createdAt: normalizeRequiredTimestamp(device.createdAt),
     updatedAt: normalizeRequiredTimestamp(device.updatedAt),
     boundAt: normalizeOptionalTimestamp(device.boundAt),
-    connectionHistory: device.connectionHistory || [],
+    connectionHistory: trimConnectionHistory(device.connectionHistory || []),
     alarms: device.alarms || [],
     syncState: device.syncState || null,
     config: device.config ? { ...device.config } : null,
@@ -379,6 +389,21 @@ export async function createApp(options = {}) {
   const checkStorageHealthFn = options.checkStorageHealth ?? checkStorageHealth;
   const publishCommandFn = options.publishCommandFn ?? publishCommand;
   let devices = await loadDevicesFn();
+  if (Array.isArray(devices)) {
+    const normalizedDevices = devices.map((device) => ({
+      ...device,
+      connectionHistory: trimConnectionHistory(device.connectionHistory || []),
+    }));
+    const needsHistoryTrim = normalizedDevices.some((device, index) => (
+      (device.connectionHistory?.length || 0) !== (devices[index]?.connectionHistory?.length || 0)
+    ));
+
+    devices = normalizedDevices;
+
+    if (needsHistoryTrim) {
+      await saveDevicesFn(devices);
+    }
+  }
   let users = await loadUsersFn();
   let groups = await loadGroupsFn();
   if (!Array.isArray(users) || users.length === 0) {

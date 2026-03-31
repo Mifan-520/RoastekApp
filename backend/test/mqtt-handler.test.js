@@ -214,7 +214,69 @@ test("handleMqttMessage syncs updated devices back to app memory", async () => {
   assert.equal(savedSnapshots[0][0].config.payload.countMode, 1);
   assert.equal(savedSnapshots[0][0].config.payload.restSeconds, 529);
   assert.equal(savedSnapshots[0][0].lastActive !== null, true);
+  assert.equal(savedSnapshots[0][0].status, "online");
   assert.deepEqual(syncedSnapshots[0], savedSnapshots[0]);
+});
+
+test("handleMqttMessage only records one online entry when device status was stale offline", async () => {
+  const devices = [
+    {
+      id: "SY-001",
+      type: "三元催化",
+      status: "offline",
+      lastSeenAt: "2026-03-31T10:00:00+08:00",
+      connectionHistory: [
+        {
+          id: "ch-offline-1",
+          type: "offline",
+          time: "2026-03-31T10:00:20+08:00",
+          label: "设备离线",
+        },
+      ],
+      config: {
+        payload: {
+          summary: [],
+          controls: [{ id: "power", active: false, label: "总电源", description: "已停止", icon: "power", tone: "rose" }],
+          countdowns: [{ id: "fire", value: 600 }, { id: "close", value: 180 }],
+          temperature: 14.4,
+          currentMode: 1,
+          countMode: 0,
+          restSeconds: 0,
+        },
+      },
+    },
+  ];
+
+  const handleMqttMessage = createMqttMessageHandler({
+    loadDevices: async () => structuredClone(devices),
+    saveDevices: async (nextDevices) => {
+      devices.splice(0, devices.length, ...structuredClone(nextDevices));
+    },
+  });
+
+  const telemetry = {
+    temperature: 14.4,
+    mode: 1,
+    countMode: 0,
+    restSeconds: 0,
+    m1f: 540,
+    m1c: 180,
+    m2f: 570,
+    m2c: 240,
+    m3f: 300,
+    m3c: 60,
+    m4f: 15,
+    m4c: 15,
+  };
+
+  await handleMqttMessage("devices/SY-001/telemetry", telemetry);
+  assert.equal(devices[0].status, "online");
+  assert.equal(devices[0].connectionHistory.length, 2);
+  assert.equal(devices[0].connectionHistory[1].type, "online");
+
+  await handleMqttMessage("devices/SY-001/telemetry", telemetry);
+  assert.equal(devices[0].status, "online");
+  assert.equal(devices[0].connectionHistory.length, 2);
 });
 
 test("handleMqttMessage creates sync warning when telemetry diverges from local expected state", async () => {

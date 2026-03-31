@@ -7,7 +7,7 @@
  */
 
 import { saveDevices, loadDevices } from "./storage.js";
-import { resolveDeviceStatus } from "./app.js";
+import { resolveDeviceStatus, trimConnectionHistory } from "./app.js";
 
 const DEFAULT_CATALYTIC_MODES = [
   { fireMinutes: 5, closeMinutes: 3 },
@@ -525,22 +525,26 @@ export function createMqttMessageHandler(options = {}) {
         lastActive: now,
         lastSeenAt: now,
         updatedAt: now,
-        status: message.status || device.status || "online",
+        status: "online",
       };
 
       // Record connection history on status transition (offline -> online)
       if (prevStatus === "offline") {
+        const lastHistoryRecord = updatedDevice.connectionHistory?.[updatedDevice.connectionHistory.length - 1] ?? null;
         const historyEntry = {
           id: `ch-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
           type: "online",
           time: now,
           label: "设备上线",
         };
-        updatedDevice.connectionHistory = [
-          ...(updatedDevice.connectionHistory || []),
-          historyEntry,
-        ];
-        console.log(`[MQTT] Device ${deviceId} went online, recorded in connectionHistory`);
+
+        if (lastHistoryRecord?.type !== "online") {
+          updatedDevice.connectionHistory = trimConnectionHistory([
+            ...(updatedDevice.connectionHistory || []),
+            historyEntry,
+          ]);
+          console.log(`[MQTT] Device ${deviceId} went online, recorded in connectionHistory`);
+        }
       }
 
       if (device.type === "三元催化" || device.type === "催化设备") {
