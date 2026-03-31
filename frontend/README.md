@@ -1,11 +1,43 @@
 
-  # 物联网手机应用
+# 物联网手机应用前端
 
-  This is a code bundle for 物联网手机应用. The original project is available at https://www.figma.com/design/NOlgnx47t5NCjhIMeTFdBo/%E7%89%A9%E8%81%94%E7%BD%91%E6%89%8B%E6%9C%BA%E5%BA%94%E7%94%A8.
+原始参考设计来自：
+https://www.figma.com/design/NOlgnx47t5NCjhIMeTFdBo/%E7%89%A9%E8%81%94%E7%BD%91%E6%89%8B%E6%9C%BA%E5%BA%94%E7%94%A8
 
-  ## Running the code
+## 运行方式
 
-  Run `npm i` to install the dependencies.
+- 安装依赖：`npm i`
+- 本地开发：`npm run dev`
+- 生产构建：`npm run build`
 
-  Run `npm run dev` to start the development server.
+## 当前 UI 约束
+
+### 报表页 `/report`
+
+- 报表页默认按**简洁演示页**处理，优先参考本地预览项目与用户确认过的截图。
+- 页面只保留核心结构：
+  - 顶部时间维度切换
+  - 折线图卡片
+  - 三张数据卡片
+- 不要额外添加解释性文案，例如：
+  - `当前为演示数据，后续从数据库调取`
+  - `点击进入 report`
+  - `总报表说明`、`演示总览`、`使用提示`
+- 图表默认使用 **直线折线**，不要曲线过渡。
+- 演示数据目前固定为：
+  - 生豆：`1000kg`
+  - 烘焙：`800kg`
+  - 包装：`500kg`
+
+### 设备中心 `/devices`
+
+- 报表入口应作为**顶部统计区中的一个简洁入口卡**出现。
+- 报表入口不要放解释性长文案，不显示“份数”等数字占位。
+- 入口卡点击后直接跳转 `/report`。
+
+### 文案风格
+
+- 只保留用户真正要看的标题与数值。
+- 避免“为了说明而说明”的副标题、提示语、引导语。
+- 视觉上优先“简洁、干净、像成品”，不是“功能说明页”。
   

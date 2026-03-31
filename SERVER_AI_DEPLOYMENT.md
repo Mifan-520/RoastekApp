@@ -32,6 +32,9 @@
 3. `.env.example`
 4. `frontend/nginx/default.conf`
 5. `deploy/nginx/reverse-proxy.example.conf`
+6. `frontend/src/app/routes.tsx`（前端路由入口）
+7. `frontend/Report/ProductionReportPage.tsx`（总产量报表页）
+8. `frontend/Report/reportData.ts`（报表演示数据）
 
 ## 当前部署结构
 
@@ -46,6 +49,14 @@
 - `frontend/nginx/default.conf` 会把 `/api` 和 `/healthz` 反代到 `backend:3001`
 - 后端数据持久化到 PostgreSQL volume
 - 首次启动时，后端会把 `backend/src/data/devices.js` 中的种子设备同步到数据库，但不会覆盖已有用户数据
+
+前端当前主要路由如下：
+
+- `/devices`：设备中心，包含顶部三张统计卡、设备列表、分组管理、告警弹窗
+- `/devices/:id`：设备详情，包含上下线记录、报警信息、监控入口
+- `/devices/:id/config/:configId`：设备 HMI 监控与控制页
+- `/report`：总产量数据报表页，入口位于设备中心顶部统计区中的“数据报表”卡片
+- `/settings`：设置页（账户信息、密码、退出登录）
 
 ## 能不能把本地 app 一比一部署到服务器
 
@@ -81,6 +92,7 @@ bash scripts/server-up.sh
 - `FRONTEND_ORIGIN`：改成真实访问地址
 - `WEB_PORT`：如果 `8080` 被占用则调整
 - `DEVICE_OFFLINE_TIMEOUT_MS`：设备离线超时阈值，默认 15000 毫秒
+- `DB_POOL_MAX`：数据库连接池最大连接数，默认 10
 
 示例：
 
@@ -120,34 +132,26 @@ bash scripts/server-update.sh
 - 再执行 `docker compose up --build -d`
 - 最后输出 `docker compose ps`
 
-## 本次同步修复上线说明
+## 本次同步上线说明
 
-这次需要同步到服务器的修复，核心是让 **MQTT telemetry → 后端内存状态 → API → HMI 页面** 使用同一份最新设备状态。
+本次需要同步到服务器的内容，以**当前页面结构与前端入口行为**为准，不再把历史联调细节逐条写进部署文档。
 
-涉及的本次改动重点：
+本次前端相关改动重点：
 
-- 后端在收到 MQTT telemetry 后，会同时刷新存储层和 API 进程内存，避免"数据库已更新但 API 还在吐旧 payload"
-- 三元催化设备的 telemetry 映射已切换到 ESP32 实际上报字段：`temperature`、`mode`、`countMode`、`restSeconds`、`m1f..m4c`
-- 前端三元催化 HMI 已取消本地自跑倒计时和本地假状态，改为直接显示后端返回的真实 telemetry 映射结果
-- 后端已增加按 `lastSeenAt` 判定的自动离线逻辑，默认超过 `DEVICE_OFFLINE_TIMEOUT_MS=15000` 毫秒未收到 telemetry 就会在 API 中显示为 `offline`
-- 后端已实现设备上下线记录同步：设备从离线恢复上线时（再次收到 telemetry），会在 `connectionHistory` 中自动添加一条"设备上线"记录
-- 前端设备详情页的上下线记录区域可展示设备的连接历史（每次上线事件）
-- 前端已删除告警页面描述文本"显示当前设备中心的全部告警，包括同步异常与普通设备告警"
-- 清理了调试遗留文件 `esp32_time_sync.txt`、`esp32_time_sync.err.txt`
-- 前端设备告警列表现已修复无法按时间降序排列的 Bug，保证最新告警始终在最前显示
-- 前端三元催化 HMI 现已接入 `syncState`：设备运行中或等待同步期间，会锁定模式切换与倒计时编辑，避免界面误切模式
-- 三元催化 HMI 主操作区已统一为：待机时显示"启动 + 复位"，运行中或同步冲突时保留"重置"入口，便于再次下发复位命令
-- 同步异常告警文案已统一成现场中文，例如"发送后应进入点火中，设备当前是待机"、"发送的模式时间与设备当前设置不一致"
-- 本地联调如修改了前端 HMI 逻辑，不仅要重启容器，还要确保前端镜像重新构建；服务器侧执行 `bash scripts/server-update.sh` 会自动完成 `docker compose up --build -d`
-- 同步异常告警现在分成两层：`device.alarms` 保留历史告警，`syncState.activeWarnings` 只表示当前仍在发生的同步异常；因此顶部黄色同步提示会随状态恢复而消失，但报警信息列表不会被自动清空
-- 三元催化时间编辑框已改为字符串草稿输入：手机端现在可以先删空再输入，也可以直接保存 `0` 分钟，保存后 HMI 会显示 `00:00`
-- 后端已增加离线巡检持久化：设备超时从在线变离线时，会真正写一条"设备离线"到 `connectionHistory`，设备详情页不再只有上线记录
+- 设备中心顶部统计区保留三张卡片：运行设备、告警信息、数据报表
+- “数据报表”卡片已接入 `/report` 路由，点击后直接进入总产量报表页
+- 报表页使用固定演示数据：生豆 `1000kg`、烘焙 `800kg`、包装 `500kg`
+- 报表页时间维度支持日 / 月 / 年切换，图表使用直线折线，不使用曲线过渡
+- 报表页时间切换高亮与折线图主色统一为酒红色 `#940236`
+- 报表页不显示解释性副标题，设备中心报表入口也不显示“份数”等占位数字
+- Tailwind 扫描路径已补充 `frontend/Report/**/*.{js,ts,jsx,tsx}`，否则报表页样式不会被正确打包进生产构建
+- 这次已同时清理仓库根目录的浏览器联调快照与网络日志残留文件，避免再次误提交
 
 如果服务器还没拉到这次代码，线上页面就仍可能出现以下旧现象：
 
-- 设备卡片活跃时间更新了，但 HMI 温度/模式/倒计时还是旧值
-- API 里同时混有旧 summary/controls/countdowns 和新 telemetry 字段
-- 页面本地倒计时与设备真实倒计时不一致
+- 设备中心顶部没有“数据报表”入口卡，或入口样式仍是旧版
+- 进入 `/report` 后样式缺失，切换按钮或卡片颜色不正确
+- 报表页仍出现旧副标题或旧颜色，而不是当前酒红主题
 
 因此，这次联调必须严格遵守下面顺序：
 
@@ -189,12 +193,14 @@ docker compose exec -T backend sh -lc "wget -qO- http://127.0.0.1:3001/healthz"
 当服务器已经完成这次更新后，再用浏览器和 API 重点核对下面几项是否一致：
 
 - 设备列表卡片中的“活跃于”时间，要能跟随最新 telemetry 刷新
-- 三元催化 HMI 当前温度，要与 `/api/devices/:id` / `/api/devices/:id/config` 中的 `payload.temperature` 一致
-- HMI 当前模式，要与 `payload.currentMode` 一致
-- HMI 当前倒计时状态，要与 `payload.countMode`、`payload.restSeconds` 一致
-- HMI 模式参数，要与 `payload.modes` 一致
+- 设备中心顶部统计区中的“数据报表”卡片，可正常点击跳转 `/report`
+- `/report` 页面能正常打开，且日 / 月 / 年切换高亮为酒红色 `#940236`
+- 报表页折线图为直线，主色为酒红色 `#940236`
+- 报表页三张数据卡片显示固定演示值：`1000kg / 800kg / 500kg`
 - 停止发送 telemetry 超过离线阈值后，设备列表和详情页状态要自动从 `online` 变成 `offline`
 - 停止发送 telemetry 超过离线阈值后，设备详情页的上下线记录中应新增一条"设备离线"
+- 设备详情页的上下线记录区域，应能展示设备连接历史
+- 设备告警列表应按时间降序展示，最新告警在最前
 - 三元催化在点火中或关机中时，模式按钮应不可切换，页面应显示锁定说明
 - 当同步警告出现时，页面应保留"重置"按钮，可再次发送复位命令
 - 设备告警中的同步异常文案应显示为现场中文，而不是 `0阶段/1阶段` 这类机器式表达
