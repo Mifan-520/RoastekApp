@@ -11,6 +11,10 @@ backend/data/
 *.log
 frontend/vite-dev.log
 backend/backend-dev.log
+*-snapshot.md
+*-network.txt
+*-console.txt
+*-entry-check.md
 
 .env
 .env.local
