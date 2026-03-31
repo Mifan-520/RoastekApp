@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router";
-import { Settings, Server, Plus, X, Check, ArchiveX, Edit2, AlertTriangle, Info, AlertCircle, Trash2, User } from "lucide-react";
+import { Settings, Server, Plus, X, Check, ArchiveX, Edit2, AlertTriangle, Info, AlertCircle, Trash2, User, FileSpreadsheet } from "lucide-react";
 import { useState } from "react";
 import { claimDevice, deleteDevice, getDevices, updateDevice, type DeviceRecord } from "../services/devices";
 import { createGroup, deleteGroup, getGroups, updateGroup, type DeviceGroupRecord } from "../services/groups";
@@ -249,18 +249,18 @@ export function DeviceList() {
       </div>
 
       {/* Stats Summary */}
-      <div className="px-6 py-6 grid grid-cols-2 gap-4">
-        <div className="bg-gradient-to-br from-rose-900 to-rose-800 p-5 rounded-[2rem] text-white shadow-lg shadow-rose-900/20 relative overflow-hidden">
+      <div className="px-6 py-6 grid grid-cols-3 gap-3">
+        <div className="bg-gradient-to-br from-rose-900 to-rose-800 p-3 rounded-[2rem] text-white shadow-lg shadow-rose-900/20 relative overflow-hidden flex flex-col justify-center min-h-[96px]">
           <div className="relative z-10">
-            <p className="text-rose-100 text-sm font-medium mb-1 opacity-90">运行设备</p>
-            <div className="flex items-end space-x-2">
-              <span className="text-3xl font-bold tracking-tight">{statsSummary.onlineCountLabel}</span>
-              <span className="text-rose-100 text-sm mb-1 font-medium">/ {statsSummary.totalCountLabel}</span>
+            <p className="text-rose-100 text-xs font-medium mb-1 opacity-90">运行设备</p>
+            <div className="flex items-end space-x-1">
+              <span className="text-2xl font-bold tracking-tight leading-none">{statsSummary.onlineCountLabel}</span>
+              <span className="text-rose-100 text-[10px] mb-0.5 font-medium">/ {statsSummary.totalCountLabel}</span>
             </div>
           </div>
           {/* Decorative mini chart / ring */}
           <div className="absolute -bottom-2 -right-2 opacity-20">
-            <svg width="80" height="80" viewBox="0 0 100 100" className="-rotate-90">
+            <svg width="72" height="72" viewBox="0 0 100 100" className="-rotate-90">
               <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="12" fill="none" opacity="0.3" />
               <circle cx="50" cy="50" r="40" stroke="currentColor" strokeWidth="12" fill="none" strokeDasharray="251" strokeDashoffset="80" strokeLinecap="round" />
             </svg>
@@ -268,16 +268,13 @@ export function DeviceList() {
         </div>
         <div 
           onClick={() => setIsAlarmsModalOpen(true)}
-          className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden cursor-pointer hover:shadow-md transition-shadow active:scale-[0.98]"
+          className="bg-white p-3 rounded-[2rem] border border-slate-100 shadow-sm relative overflow-hidden cursor-pointer hover:shadow-md transition-shadow active:scale-[0.98] flex flex-col justify-center min-h-[96px]"
         >
           <div className="relative z-10">
-            <p className="text-slate-500 text-sm font-medium mb-1 flex items-center">
-              告警信息
-              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 ml-1.5 animate-pulse" />
-            </p>
-            <div className="flex items-end space-x-2">
-              <span className="text-3xl font-bold text-slate-800 tracking-tight">{alarms.length}</span>
-              <span className="text-slate-400 text-sm mb-1 font-medium">条记录</span>
+<p className="text-slate-500 text-xs font-medium mb-1">告警信息</p>
+            <div className="flex items-end space-x-1">
+              <span className="text-2xl font-bold text-slate-800 tracking-tight leading-none">{alarms.length}</span>
+              <span className="text-slate-400 text-[10px] mb-0.5 font-medium">条记录</span>
             </div>
           </div>
           <div className="absolute bottom-0 right-0 left-0 h-10 opacity-[0.03]">
@@ -285,6 +282,16 @@ export function DeviceList() {
                 <path d="M0,40 L0,20 C20,20 30,10 50,10 C70,10 80,30 100,30 C120,30 130,5 150,5 C170,5 180,25 200,25 L200,40 Z"></path>
              </svg>
           </div>
+        </div>
+<div 
+          onClick={() => navigate("/report")}
+          className="bg-rose-50 p-3 rounded-[2rem] border border-rose-100 shadow-sm flex flex-col justify-center cursor-pointer active:scale-[0.98] transition-transform relative overflow-hidden group min-h-[96px]"
+        >
+          <div className="absolute -top-1 -right-1 p-2 opacity-10 group-hover:opacity-20 transition-opacity">
+            <FileSpreadsheet className="w-10 h-10 text-rose-900" />
+          </div>
+          <p className="text-rose-900/70 text-xs font-medium mb-1 relative z-10">数据报表</p>
+          <p className="text-sm font-bold text-rose-900 relative z-10">总产量</p>
         </div>
       </div>
 
