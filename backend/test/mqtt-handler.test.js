@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
+import { recordExpectedResponse } from "../src/modbus-poller.js";
 import { createMqttMessageHandler, mapTelemetryToPayload } from "../src/mqtt-handler.js";
 
 test("maps catalytic telemetry to HMI payload fields", () => {
@@ -440,4 +441,96 @@ test("handleMqttMessage keeps sync alarm history after telemetry returns to matc
   assert.equal(devices[0].alarms.length, 1);
   assert.equal(devices[0].syncState.status, "matched");
   assert.deepEqual(devices[0].syncState.activeWarnings, []);
+});
+
+test("maps fan status telemetry from expected Modbus response", () => {
+  recordExpectedResponse("LY-001", 0x2100);
+
+  const payload = mapTelemetryToPayload(
+    {
+      id: "LY-001",
+      type: "风机设备",
+      config: {
+        payload: {
+          runningFreq: 0,
+          status: "offline",
+          statusText: "离线",
+          statusTone: "slate",
+          summary: [],
+        },
+      },
+    },
+    "0103020003F845",
+  );
+
+  assert.equal(payload.status, "stopped");
+  assert.equal(payload.statusText, "已停机");
+  assert.equal(payload.statusTone, "amber");
+  assert.equal(payload.runningFreq, 0);
+  assert.deepEqual(payload.summary, [
+    { id: "freq", label: "运行频率", value: "0.00", unit: "Hz", tone: "amber" },
+    { id: "status", label: "运行状态", value: "已停机", tone: "amber" },
+  ]);
+});
+
+test("maps fan frequency telemetry from expected Modbus response", () => {
+  recordExpectedResponse("LY-001", 0x3000);
+
+  const payload = mapTelemetryToPayload(
+    {
+      id: "LY-001",
+      type: "风机设备",
+      config: {
+        payload: {
+          runningFreq: 0,
+          status: "offline",
+          statusText: "离线",
+          statusTone: "slate",
+          summary: [],
+        },
+      },
+    },
+    "01030211D7F44A",
+  );
+
+  assert.equal(payload.runningFreq, 45.67);
+  assert.equal(payload.status, "online");
+  assert.equal(payload.statusText, "在线运行");
+  assert.deepEqual(payload.summary, [
+    { id: "freq", label: "运行频率", value: "45.67", unit: "Hz", tone: "emerald" },
+    { id: "status", label: "运行状态", value: "在线运行", tone: "emerald" },
+  ]);
+});
+
+test("handleMqttMessage accepts raw fan Modbus hex telemetry", async () => {
+  const devices = [
+    {
+      id: "LY-001",
+      type: "风机设备",
+      status: "offline",
+      config: {
+        payload: {
+          runningFreq: 0,
+          status: "offline",
+          statusText: "离线",
+          statusTone: "slate",
+          summary: [],
+        },
+      },
+    },
+  ];
+
+  const handleMqttMessage = createMqttMessageHandler({
+    loadDevices: async () => structuredClone(devices),
+    saveDevices: async (nextDevices) => {
+      devices.splice(0, devices.length, ...structuredClone(nextDevices));
+    },
+  });
+
+  recordExpectedResponse("LY-001", 0x3000);
+  await handleMqttMessage("devices/LY-001/telemetry", "01030211D7F44A");
+
+  assert.equal(devices[0].status, "online");
+  assert.equal(devices[0].config.payload.runningFreq, 45.67);
+  assert.equal(devices[0].config.payload.summary[0].value, "45.67");
 });

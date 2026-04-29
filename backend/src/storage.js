@@ -184,6 +184,19 @@ function mergeDeviceIntoSeed(seedDevice, persistedDevice) {
     };
   }
 
+  if (seedDevice.id === "LY-001" && merged.config?.payload?.status === "unknown") {
+    merged.config.payload.status = "offline";
+    merged.config.payload.statusText = "离线";
+    merged.config.payload.statusTone = "slate";
+    merged.config.payload.summary = Array.isArray(merged.config.payload.summary)
+      ? merged.config.payload.summary.map((item) => (
+        item?.id === "status"
+          ? { ...item, value: "离线", tone: "slate" }
+          : item
+      ))
+      : seedDevice.config?.payload?.summary;
+  }
+
   return merged;
 }
 

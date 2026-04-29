@@ -49,21 +49,21 @@ test("rejects unauthenticated device list access", async () => {
   assert.equal(response.status, 401);
 });
 
-test("seeds eleven devices with four pre-bound for Fujian Sanxiyan", async () => {
+test("seeds twelve devices with five pre-bound devices", async () => {
   const app = await buildApp();
   const session = await loginAs(app, "admin", "admin");
 
-  assert.equal(seedDevices.length, 11);
+  assert.equal(seedDevices.length, 12);
 
   const response = await request(app)
     .get("/api/devices")
     .set("Authorization", `Bearer ${session.token}`);
 
   assert.equal(response.status, 200);
-  assert.equal(response.body.devices.length, 4);
+  assert.equal(response.body.devices.length, 5);
   assert.deepEqual(
     response.body.devices.map((device) => device.name),
-    ["Z字梯", "生豆处理站", "智能仓储", "三元催化"]
+    ["Z字梯", "生豆处理站", "智能仓储", "三元催化", "溧阳一期风机"]
   );
   assert.equal(response.body.devices.every((device) => device.config && device.config.payload), true);
 });

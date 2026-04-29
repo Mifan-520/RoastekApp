@@ -21,10 +21,15 @@ const STYLED_COLORS = ["#be123c", "#f43f5e", "#ffe4e6"];
 const toneClasses = {
   rose: "border-rose-800/40 bg-rose-900/15 text-rose-100",
   amber: "border-amber-500/30 bg-amber-500/10 text-amber-100",
+  emerald: "border-emerald-500/30 bg-emerald-500/10 text-emerald-100",
+  blue: "border-sky-500/30 bg-sky-500/10 text-sky-100",
+  slate: "border-slate-600/40 bg-slate-800/30 text-slate-100",
 } as const;
 
-function getToneClass(tone?: "rose" | "amber") {
-  return tone ? toneClasses[tone] : "border-rose-900/20 bg-[#1a0f12] text-slate-100";
+function getToneClass(tone?: string) {
+  return tone && tone in toneClasses
+    ? toneClasses[tone as keyof typeof toneClasses]
+    : "border-rose-900/20 bg-[#1a0f12] text-slate-100";
 }
 
 function ErrorBanner({ error }: { error?: string }) {
@@ -58,6 +63,22 @@ function formatSyncPhase(countMode?: number) {
   return "待机";
 }
 
+function formatFanRecordTime(value?: string) {
+  if (!value) return "--";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
 export function DeviceUI() {
   const { id, configId } = useParams();
   const navigate = useNavigate();
@@ -74,6 +95,17 @@ export function DeviceUI() {
     () => (config?.payload?.chart?.data ?? []).map((item) => ({ ...item, name: item.label })),
     [config?.payload?.chart?.data],
   );
+  const controls = config?.payload?.controls ?? [];
+  const runningHistory = config?.payload?.runningHistory ?? [];
+  const hasChartData = chartData.length > 0;
+  const hasControls = controls.length > 0;
+  const showReadOnlyInfo = !hasChartData && !hasControls;
+  const summaryGridClass = showReadOnlyInfo
+    ? "grid h-[32vh] min-h-[220px] max-h-[280px] grid-rows-2 gap-3"
+    : "grid grid-cols-1 gap-4 sm:grid-cols-3";
+  const contentClass = showReadOnlyInfo
+    ? "flex min-h-[calc(100vh-89px)] flex-col gap-4 p-6 pt-5"
+    : "p-6 pt-4 space-y-5";
   const syncState = device?.syncState;
   const syncWarningAlarms = useMemo(
     () => syncState?.activeWarnings ?? [],
@@ -368,7 +400,7 @@ export function DeviceUI() {
   }
 
   return (
-    <div className="flex flex-col min-h-full bg-[#0d0708] text-slate-100 relative">
+    <div className="flex flex-col min-h-screen bg-[#0d0708] text-slate-100 relative">
       {/* Header */}
       <div className="flex items-center p-6 sticky top-0 bg-[#0d0708]/80 backdrop-blur-xl z-50 border-b border-rose-900/30">
         <button onClick={() => navigate(backPath)} className="p-2 -ml-2 mr-2 rounded-full hover:bg-rose-950/50 transition-colors text-rose-100">
@@ -379,54 +411,85 @@ export function DeviceUI() {
 
       <ErrorBanner error={pageError} />
 
-      <div className="p-6 pt-4 space-y-6 flex-1">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className={contentClass}>
+        <div className={summaryGridClass}>
           {config.payload?.summary.map((item) => (
-            <div key={item.id} className={`rounded-3xl border p-4 ${getToneClass(item.tone)}`}>
-              <p className="text-xs font-medium tracking-[0.2em] text-white/55">{item.label}</p>
+            <div key={item.id} className={`flex min-w-0 flex-col justify-center rounded-3xl border p-5 ${getToneClass(item.tone)}`}>
+              <p className="whitespace-nowrap text-sm font-medium tracking-[0.18em] text-white/55">{item.label}</p>
               <div className="mt-3 flex items-end gap-2">
-                <span className="text-3xl font-black tracking-tight text-white">{item.value}</span>
+                <span className="whitespace-nowrap text-[45px] font-black leading-none tracking-tight text-white">{item.value}</span>
                 {item.unit ? <span className="pb-1 text-sm font-semibold text-white/65">{item.unit}</span> : null}
               </div>
             </div>
           ))}
         </div>
-        
-        {/* Statistics Chart */}
-        <div className="bg-[#1a0f12]/50 rounded-3xl p-5 border border-rose-900/20">
-          <h3 className="text-[15px] font-bold tracking-tight text-white mb-4 px-1">{config.payload?.chart.title ?? "能耗分布统计"}</h3>
-          <div className="h-[220px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="45%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                  stroke="none"
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color ?? STYLED_COLORS[index % STYLED_COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ backgroundColor: '#0d0708', border: '1px solid #4c1d24', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', color: '#fff' }}
-                  itemStyle={{ color: '#fda4af' }}
-                />
-                <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px', color: '#cbd5e1' }}/>
-              </PieChart>
-            </ResponsiveContainer>
+
+        {showReadOnlyInfo ? (
+          <div className="flex flex-1 flex-col rounded-3xl border border-rose-900/20 bg-[#1a0f12]/60 p-6">
+            <div className="mb-4 flex flex-nowrap items-center justify-between gap-3 px-1">
+              <h3 className="shrink-0 whitespace-nowrap text-[15px] font-bold tracking-tight text-white">运行记录</h3>
+              <span className="whitespace-nowrap rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[10px] font-bold tracking-[0.12em] text-white/50">
+                Modbus RTU / 5s
+              </span>
+            </div>
+            {runningHistory.length > 0 ? (
+              <div className="overflow-hidden rounded-2xl border border-white/10">
+                <div className="grid grid-cols-[1.2fr_0.8fr] bg-white/5 px-4 py-3 text-xs font-bold tracking-[0.18em] text-white/45">
+                  <span>时间</span>
+                  <span className="text-right">运行频率</span>
+                </div>
+                {runningHistory.map((record, index) => (
+                  <div key={`${record.time}-${index}`} className="grid grid-cols-[1.2fr_0.8fr] border-t border-white/10 px-4 py-3 text-sm">
+                    <span className="font-medium text-white/70">{formatFanRecordTime(record.time)}</span>
+                    <span className="text-right font-black text-white">{Number(record.runningFreq || 0).toFixed(2)} Hz</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-1 items-center justify-center rounded-2xl border border-white/10 bg-black/20 px-4 py-8 text-center">
+                <p className="text-sm font-bold text-white/65">暂无上行记录</p>
+              </div>
+            )}
           </div>
-        </div>
+        ) : null}
+        
+        {hasChartData ? (
+          <div className="bg-[#1a0f12]/50 rounded-3xl p-5 border border-rose-900/20">
+            <h3 className="text-[15px] font-bold tracking-tight text-white mb-4 px-1">{config.payload?.chart.title ?? "能耗分布统计"}</h3>
+            <div className="h-[220px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={chartData}
+                    cx="50%"
+                    cy="45%"
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
+                    dataKey="value"
+                    stroke="none"
+                  >
+                    {chartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color ?? STYLED_COLORS[index % STYLED_COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ backgroundColor: '#0d0708', border: '1px solid #4c1d24', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', color: '#fff' }}
+                    itemStyle={{ color: '#fda4af' }}
+                  />
+                  <Legend verticalAlign="bottom" height={36} iconType="circle" wrapperStyle={{ fontSize: '12px', color: '#cbd5e1' }}/>
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        ) : null}
 
         {/* Control Switches */}
+        {hasControls ? (
         <div>
           <h3 className="text-[15px] font-bold tracking-tight text-white mb-4 px-1">设备控制</h3>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {config.payload?.controls.map((control) => (
+            {controls.map((control) => (
               <div key={control.id} className={`rounded-3xl border p-4 transition-all duration-300 ${getToneClass(control.tone)}`}>
                 <div className="mb-4 flex items-start justify-between gap-4">
                   <div className={`flex h-10 w-10 items-center justify-center rounded-2xl ${control.active ? "bg-white/15 text-white shadow-[0_0_15px_rgba(255,255,255,0.08)]" : "bg-black/30 text-white/45"}`}>
@@ -442,6 +505,7 @@ export function DeviceUI() {
             ))}
           </div>
         </div>
+        ) : null}
 
       </div>
     </div>

@@ -419,6 +419,7 @@ export async function createApp(options = {}) {
     try {
       await saveDevicesFn(nextDevices);
       devices = nextDevices;
+      app.locals.syncFanPollers?.(devices);
       return true;
     } catch (error) {
       console.error("[Storage] Failed to persist devices:", error.message);
@@ -445,6 +446,7 @@ export async function createApp(options = {}) {
         if (nextDevices !== devices) {
           await saveDevicesFn(nextDevices);
           devices = nextDevices;
+          app.locals.syncFanPollers?.(devices);
         }
       } catch (error) {
         console.error("[Devices] Failed to persist offline status:", error.message);

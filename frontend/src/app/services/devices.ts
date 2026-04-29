@@ -11,7 +11,7 @@ export interface DeviceUiSummaryItem {
   label: string;
   value: string;
   unit?: string;
-  tone?: "rose" | "amber";
+  tone?: "rose" | "amber" | "emerald" | "blue" | "slate";
 }
 
 export interface DeviceUiChartItem {
@@ -54,6 +54,8 @@ export interface DeviceUiPayload {
   equipment?: Array<{ id: string; name: string; status: "online" | "offline" }>;
   bins?: Array<{ id: number; weight: number; maxWeight: number }>;
   frequency?: { current: number; target: number };
+  runningFreq?: number;
+  runningHistory?: Array<{ time: string; runningFreq: number }>;
 }
 
 export interface DeviceCommandRequest {

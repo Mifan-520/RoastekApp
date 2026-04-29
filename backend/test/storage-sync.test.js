@@ -167,6 +167,53 @@ test("should backfill missing seed fields", () => {
   });
 });
 
+test("should migrate LY-001 unknown placeholder status to offline", () => {
+  const result = runSeedSyncWithMigrations(
+    [
+      createMockDevice({
+        id: "LY-001",
+        claimCode: "LYFAN001",
+        config: {
+          id: "config-ly",
+          payload: {
+            runningFreq: 0,
+            status: "unknown",
+            statusText: "未知状态",
+            statusTone: "slate",
+            summary: [
+              { id: "freq", label: "运行频率", value: "0.00", unit: "Hz", tone: "amber" },
+              { id: "status", label: "运行状态", value: "未知状态", tone: "slate" },
+            ],
+          },
+        },
+      }),
+    ],
+    [
+      createMockDevice({
+        id: "LY-001",
+        claimCode: "LYFAN001",
+        config: {
+          id: "config-ly",
+          payload: {
+            runningFreq: 0,
+            status: "offline",
+            statusText: "离线",
+            statusTone: "slate",
+            summary: [
+              { id: "freq", label: "运行频率", value: "0.00", unit: "Hz", tone: "amber" },
+              { id: "status", label: "运行状态", value: "离线", tone: "slate" },
+            ],
+          },
+        },
+      }),
+    ],
+  );
+
+  assert.equal(result.devices[0].config.payload.status, "offline");
+  assert.equal(result.devices[0].config.payload.statusText, "离线");
+  assert.equal(result.devices[0].config.payload.summary[1].value, "离线");
+});
+
 test("should collapse legacy claimed devices into canonical seed ids by claim code", () => {
   const persistedDevices = [
     createMockDevice({
