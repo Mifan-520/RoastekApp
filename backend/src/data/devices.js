@@ -127,6 +127,24 @@ const warehousePayload = {
   ],
 };
 
+// 溧阳一期风机监控
+const lyFanPayload = {
+  summary: [
+    { id: "freq", label: "运行频率", value: "0.00", unit: "Hz", tone: "amber" },
+    { id: "status", label: "运行状态", value: "离线", tone: "slate" },
+  ],
+  chart: {
+    title: "溧阳一期风机运行状态",
+    data: [],
+  },
+  controls: [],
+  runningFreq: 0,
+  runningHistory: [],
+  status: "offline",
+  statusText: "离线",
+  statusTone: "slate",
+};
+
 export const seedDevices = [
   {
     id: "ZZ-001",
@@ -275,6 +293,30 @@ export const seedDevices = [
       id: "config-sy",
       name: "三元催化监控",
       payload: catalyticPayload,
+    },
+  },
+  {
+    id: "LY-001",
+    claimCode: "LYFAN001",
+    defaultName: "溧阳一期风机",
+    defaultType: "风机设备",
+    defaultLocation: "溧阳",
+    defaultAddress: "溧阳",
+    defaultConfigName: "溧阳一期风机监控",
+    status: "offline",
+    createdAt: "2026-04-28T10:00:00+08:00",
+    updatedAt: "2026-04-28T10:00:00+08:00",
+    ownerId: "user-admin",
+    name: "溧阳一期风机",
+    type: "风机设备",
+    location: "溧阳",
+    address: "溧阳",
+    connectionHistory: [],
+    alarms: [],
+    config: {
+      id: "config-ly",
+      name: "溧阳一期风机监控",
+      payload: lyFanPayload,
     },
   },
   // 新增未绑定设备（可被用户认领）

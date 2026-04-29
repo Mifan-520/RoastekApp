@@ -64,7 +64,15 @@ export async function connectMqtt(config, onMessage) {
 
     client.on("message", (topic, payload) => {
       try {
-        const message = JSON.parse(payload.toString());
+        const rawMessage = payload.toString().trim();
+        let message;
+
+        try {
+          message = JSON.parse(rawMessage);
+        } catch {
+          message = rawMessage;
+        }
+
         console.log(`[MQTT] Received on ${topic}:`, message);
         
         if (messageHandler) {
@@ -154,6 +162,10 @@ export function publishCommand(deviceId, command) {
 }
 
 export function formatCommandPayload(command) {
+  if (typeof command === "string") {
+    return `${command.trim()}\n`;
+  }
+
   return `${JSON.stringify(command)}\n`;
 }
 

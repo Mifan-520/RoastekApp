@@ -2,14 +2,30 @@ import "./load-env.js";
 import { createApp } from "./app.js";
 import { config } from "./config.js";
 import { closeStorage } from "./storage.js";
-import { connectMqtt, subscribeDevice, disconnectMqtt } from "./mqtt-client.js";
+import { connectMqtt, subscribeDevice, disconnectMqtt, publishCommand } from "./mqtt-client.js";
 import { createMqttMessageHandler, subscribeAllDevices } from "./mqtt-handler.js";
+import { isFanDevice, startPolling, stopAllPolling, stopPolling } from "./modbus-poller.js";
+
+function syncFanPollers(devices) {
+  const activeFanDeviceIds = new Set(
+    (Array.isArray(devices) ? devices : [])
+      .filter((device) => isFanDevice(device) && device.config)
+      .map((device) => device.id),
+  );
+
+  for (const deviceId of activeFanDeviceIds) {
+    startPolling(deviceId, publishCommand);
+  }
+
+  return activeFanDeviceIds;
+}
 
 async function start() {
   const app = await createApp();
   const handleMqttMessage = createMqttMessageHandler({
     onDevicesUpdated: async (nextDevices) => {
       app.locals.replaceDevices?.(nextDevices);
+      app.locals.syncFanPollers?.(nextDevices);
     },
   });
 
@@ -26,6 +42,18 @@ async function start() {
       const { loadDevices } = await import("./storage.js");
       const devices = await loadDevices();
       subscribeAllDevices(subscribeDevice, devices);
+      let activeFanDeviceIds = syncFanPollers(devices);
+      app.locals.syncFanPollers = (nextDevices) => {
+        const nextFanDeviceIds = syncFanPollers(nextDevices);
+
+        for (const deviceId of activeFanDeviceIds) {
+          if (!nextFanDeviceIds.has(deviceId)) {
+            stopPolling(deviceId);
+          }
+        }
+
+        activeFanDeviceIds = nextFanDeviceIds;
+      };
       
       console.log("[MQTT] Integration enabled and connected");
     } catch (error) {
@@ -42,6 +70,7 @@ async function start() {
     
     // Disconnect MQTT if connected
     if (mqttConnected) {
+      stopAllPolling();
       disconnectMqtt();
     }
     

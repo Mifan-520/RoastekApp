@@ -8,6 +8,12 @@
 
 import { saveDevices, loadDevices } from "./storage.js";
 import { resolveDeviceStatus, trimConnectionHistory } from "./app.js";
+import {
+  consumeExpectedResponse,
+  FAN_REGISTERS,
+  mapStatusWord,
+  parseResponse,
+} from "./modbus-poller.js";
 
 const DEFAULT_CATALYTIC_MODES = [
   { fireMinutes: 5, closeMinutes: 3 },
@@ -108,6 +114,87 @@ function buildCatalyticCountdowns(modes, currentMode, countMode, restSeconds) {
       editable: true,
     },
   ];
+}
+
+function buildFanSummary(runningFreq, statusText, statusTone) {
+  return [
+    {
+      id: "freq",
+      label: "运行频率",
+      value: runningFreq.toFixed(2),
+      unit: "Hz",
+      tone: statusTone === "emerald" || statusTone === "blue" ? "emerald" : "amber",
+    },
+    {
+      id: "status",
+      label: "运行状态",
+      value: statusText,
+      tone: statusTone,
+    },
+  ];
+}
+
+function appendFanRunningHistory(currentPayload, runningFreq, time) {
+  const currentHistory = Array.isArray(currentPayload.runningHistory)
+    ? currentPayload.runningHistory
+    : [];
+
+  return [
+    {
+      time,
+      runningFreq,
+    },
+    ...currentHistory,
+  ].slice(0, 20);
+}
+
+function buildFanPayload(device, telemetry, currentPayload, commonUpdate) {
+  if (typeof telemetry !== "string") {
+    return {
+      ...currentPayload,
+      ...commonUpdate,
+      ...telemetry,
+    };
+  }
+
+  const parsed = parseResponse(telemetry);
+  const register = consumeExpectedResponse(device.id);
+  const value = parsed.values[0];
+  const currentStatus = {
+    status: currentPayload.status ?? "offline",
+    statusText: currentPayload.statusText ?? "离线",
+    statusTone: currentPayload.statusTone ?? "slate",
+  };
+  const nextPayload = {
+    ...currentPayload,
+    ...commonUpdate,
+    runningFreq: toFiniteNumber(currentPayload.runningFreq, 0),
+    ...currentStatus,
+  };
+
+  if (register === FAN_REGISTERS.STATUS) {
+    Object.assign(nextPayload, mapStatusWord(value));
+  } else if (register === FAN_REGISTERS.FREQUENCY) {
+    nextPayload.runningFreq = Number((value / 100).toFixed(2));
+    nextPayload.runningHistory = appendFanRunningHistory(
+      currentPayload,
+      nextPayload.runningFreq,
+      commonUpdate.lastTelemetryAt,
+    );
+    if (nextPayload.status === "offline") {
+      nextPayload.status = "online";
+      nextPayload.statusText = "在线运行";
+      nextPayload.statusTone = "emerald";
+    }
+  }
+
+  nextPayload.summary = buildFanSummary(
+    nextPayload.runningFreq,
+    nextPayload.statusText,
+    nextPayload.statusTone,
+  );
+
+  return nextPayload;
 }
 
 function sanitizeCatalyticPayload(currentPayload) {
@@ -440,6 +527,9 @@ export function mapTelemetryToPayload(device, telemetry) {
         motorCurrent: telemetry.motorCurrent ?? currentPayload.motorCurrent ?? 0,
         motorTemp: telemetry.motorTemp ?? currentPayload.motorTemp ?? 0,
       };
+
+    case "风机设备":
+      return buildFanPayload(device, telemetry, currentPayload, commonUpdate);
       
     default:
       // Generic device - just merge telemetry with current payload
