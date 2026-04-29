@@ -72,7 +72,6 @@ docker compose logs backend --tail=50
 |--------|----------|------|--------|-----|------|
 | `SY-001` | 三元催化 | 已归档 | ESP32 | 有人云 4G | - |
 | `LY-001` | 溧阳一期风机 | 活跃 | Goodrive270变频器 | 有人云 4G | Modbus RTU透传 |
-| `CQ-001` | 重庆风机 | 活跃 | Goodrive270变频器 | 有人云 4G | Modbus RTU透传 |
 
 ### 新设备配置模板
 

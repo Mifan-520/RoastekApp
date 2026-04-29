@@ -184,7 +184,7 @@ function mergeDeviceIntoSeed(seedDevice, persistedDevice) {
     };
   }
 
-  if (seedDevice.id === "LY-001" && merged.config?.payload?.status === "unknown") {
+  if (["LY-001", "CQ-001"].includes(seedDevice.id) && merged.config?.payload?.status === "unknown") {
     merged.config.payload.status = "offline";
     merged.config.payload.statusText = "离线";
     merged.config.payload.statusTone = "slate";

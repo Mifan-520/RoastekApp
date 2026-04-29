@@ -145,6 +145,24 @@ const lyFanPayload = {
   statusTone: "slate",
 };
 
+// 重庆风机监控
+const cqFanPayload = {
+  summary: [
+    { id: "freq", label: "运行频率", value: "0.00", unit: "Hz", tone: "amber" },
+    { id: "status", label: "运行状态", value: "离线", tone: "slate" },
+  ],
+  chart: {
+    title: "重庆风机运行状态",
+    data: [],
+  },
+  controls: [],
+  runningFreq: 0,
+  runningHistory: [],
+  status: "offline",
+  statusText: "离线",
+  statusTone: "slate",
+};
+
 export const seedDevices = [
   {
     id: "ZZ-001",
@@ -317,6 +335,30 @@ export const seedDevices = [
       id: "config-ly",
       name: "溧阳一期风机监控",
       payload: lyFanPayload,
+    },
+  },
+  {
+    id: "CQ-001",
+    claimCode: "CQFAN001",
+    defaultName: "重庆风机",
+    defaultType: "风机设备",
+    defaultLocation: "重庆",
+    defaultAddress: "重庆",
+    defaultConfigName: "重庆风机监控",
+    status: "offline",
+    createdAt: "2026-04-29T10:00:00+08:00",
+    updatedAt: "2026-04-29T10:00:00+08:00",
+    ownerId: "user-admin",
+    name: "重庆风机",
+    type: "风机设备",
+    location: "重庆",
+    address: "重庆",
+    connectionHistory: [],
+    alarms: [],
+    config: {
+      id: "config-cq",
+      name: "重庆风机监控",
+      payload: cqFanPayload,
     },
   },
   // 新增未绑定设备（可被用户认领）
