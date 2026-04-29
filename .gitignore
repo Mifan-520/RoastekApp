@@ -23,3 +23,15 @@ backend/backend-dev.log
 
 .DS_Store
 Thumbs.db
+
+# Claude Code / AI 工具
+.claude/
+.omc/
+frontend/.omc/
+.codex-log.md
+
+# 项目级 skills（已在 ~/.claude/skills/ 管理）
+skills/
+
+# 学习记录（空模板，无实际内容）
+.learnings/
